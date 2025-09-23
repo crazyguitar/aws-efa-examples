@@ -1,6 +1,7 @@
 #include <cstring>
 #include <string>
 
+#include "common/coro.h"
 #include "common/efa.h"
 #include "common/mpi.h"
 #include "common/net.h"
@@ -16,8 +17,12 @@ int main(int argc, char *argv[]) {
   auto &efa = EFA::Get();
   auto net = Net();
   auto rank = mpi.GetWorldRank();
+  auto world_size = mpi.GetWorldSize();
+  char remote[kMaxAddrSize] = {0};
   std::string endpoints(mpi.GetWorldSize() * kMaxAddrSize, 0);
 
   net.Open(efa.GetEFAInfo());
   AllGatherAddr(net.GetAddr(), rank, endpoints);
+  std::memcpy(remote, endpoints.data() + ENDPOINT_IDX((rank + 1) % world_size), kMaxAddrSize);
+  net.Connect(remote);
 }

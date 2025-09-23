@@ -43,8 +43,6 @@ end:
 
 class EFA {
  public:
-  static constexpr size_t kAddrSize = 32;
-
   EFA() : info_{GetInfo()} {}
   ~EFA() {
     if (info_) {

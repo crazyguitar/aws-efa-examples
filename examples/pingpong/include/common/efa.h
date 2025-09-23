@@ -63,9 +63,8 @@ class EFA {
     if (hints) {
       fi_freeinfo(hints);
       hints = nullptr;
-  }
-  return info;
-
+    }
+    return info;
   }
 
  private:
