@@ -10,3 +10,6 @@ sqush:
 
 clean:
 	rm -rf build/
+
+format:
+	find . -type f -name "*.cc" -o -name "*.h" | xargs -I{} clang-format -style=file -i {}
