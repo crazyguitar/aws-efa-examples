@@ -1,8 +1,5 @@
 #include "utils.h"
 
-#include <rdma/fabric.h>
-#include <spdlog/spdlog.h>
-
 struct fi_info *GetInfo() {
   int rc = 0;
   struct fi_info *hints = nullptr;
