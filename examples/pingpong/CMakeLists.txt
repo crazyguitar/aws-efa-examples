@@ -11,7 +11,7 @@ pkg_check_modules(Fabric IMPORTED_TARGET libfabric)
 add_executable(${target} ${src})
 target_compile_options(${target} PRIVATE -Wall -Werror -O3 -g)
 target_include_directories(${target} PRIVATE
-  "${CMAKE_CURRENT_SOURCE_DIR}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include"
   "${MPI_INCLUDE_PATH}"
 )
 target_link_libraries(${target} PRIVATE
