@@ -11,3 +11,7 @@ make build
 # run the binary
 ./build/examples/lsefa/lsefa
 ```
+
+## Reference
+
+* [libfabric](https://github.com/aws/libfabric/blob/1.9.x/util/info.c)

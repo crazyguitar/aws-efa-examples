@@ -22,7 +22,15 @@ struct fi_info *GetInfo() {
   rc = fi_getinfo(FI_VERSION(1, 20), NULL, NULL, 0, hints, &info);
   if (rc != 0) {
     SPDLOG_ERROR("fi_getinfo fail. error({}): {}", rc, fi_strerror(-rc));
+    goto error;
+  } else {
     goto end;
+  }
+
+error:
+  if (info) {
+    fi_freeinfo(info);
+    info = nullptr;
   }
 
 end:
