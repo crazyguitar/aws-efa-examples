@@ -29,11 +29,37 @@ class Conn {
     Buffer *await_resume() { return conn->buffer_.get(); }
   };
 
+  struct send_awaiter {
+    Conn *conn;
+    send_awaiter(Conn *c) : conn{c} {}
+    bool await_ready() const noexcept { return false; }
+    bool await_suspend(std::coroutine_handle<> coroutine) {
+      conn->Suspend(coroutine);
+      auto &buffer = conn->buffer_;
+      struct iovec iov{0};
+      struct fi_msg msg{0};
+      iov.iov_base = buffer->GetData();
+      iov.iov_len = buffer->GetSize();
+      msg.msg_iov = &iov;
+      msg.desc = &buffer->GetMR()->mem_desc;
+      msg.iov_count = 1;
+      msg.addr = FI_ADDR_UNSPEC;
+      msg.context = conn;
+      CHECK(fi_sendmsg(conn->ep_, &msg, 0));
+      return true;
+    }
+
+    size_t await_resume() { return conn->buffer_->GetBytes(); }
+  };
+
   void Suspend(std::coroutine_handle<> coroutine) { coroutine_ = coroutine; }
   void Resume() {
     if (!coroutine_) return;
     coroutine_.resume();
   }
+
+  send_awaiter Send() { return send_awaiter(ep_, this); }
+  recv_awaiter Recv() { return recv_awaiter(ep_, this); }
 
  private:
   struct fid_ep *ep_ = nullptr;
