@@ -25,5 +25,3 @@
 #define ENDPOINT_IDX(rank) (rank * kMaxAddrSize)
 
 constexpr size_t kMaxAddrSize = 64;
-
-struct fi_info *GetInfo();
