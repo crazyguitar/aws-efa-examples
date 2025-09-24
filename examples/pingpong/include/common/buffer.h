@@ -50,6 +50,7 @@ class Buffer {
   struct fid_mr *GetMR() const { return mr_; }
   size_t GetSize() const { return size_; }
   size_t GetBytes() const { return bytes_; }
+  void SetBytes(size_t bytes) { bytes_ = bytes; }
 
  private:
   inline static void *Align(void *ptr, size_t align) {

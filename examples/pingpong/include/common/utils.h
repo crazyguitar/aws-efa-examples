@@ -28,3 +28,4 @@ constexpr size_t kMaxAddrSize = 64;
 constexpr size_t kAddrSize = 32;
 constexpr size_t kAlign = 128;
 constexpr size_t kBufferSize = 8129;
+constexpr size_t kMaxCQEntries = 16;

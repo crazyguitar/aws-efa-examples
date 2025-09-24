@@ -19,6 +19,7 @@ class Net {
   void Open(struct fi_info *info);
   void Connect(const char *remote);
   const char *GetAddr() { return addr_; }
+  struct fid_cq *GetCQ() { return cq_; }
 
   inline static std::string Addr2Str(const char *addr) {
     std::string out;

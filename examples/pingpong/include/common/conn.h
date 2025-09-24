@@ -58,12 +58,21 @@ class Conn {
     coroutine_.resume();
   }
 
-  send_awaiter Send() { return send_awaiter(ep_, this); }
-  recv_awaiter Recv() { return recv_awaiter(ep_, this); }
+  send_awaiter Send() { return send_awaiter(this); }
+  recv_awaiter Recv() { return recv_awaiter(this); }
+
+  void HandleRecv(const struct fi_cq_data_entry &entry) {
+    buffer_->SetBytes(entry.len);
+    Resume();
+  }
+
+  void HandleSend(const struct fi_cq_data_entry &entry) {
+    buffer_->SetBytes(entry.len);
+    Resume();
+  }
 
  private:
   struct fid_ep *ep_ = nullptr;
   std::unique_ptr<Buffer> buffer_ = nullptr;
   std::coroutine_handle<> coroutine_ = nullptr;
-  struct fi_cq_data_entry *entry_ = nullptr;
 };
