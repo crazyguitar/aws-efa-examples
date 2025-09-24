@@ -24,6 +24,7 @@ class Conn {
       msg.addr = FI_ADDR_UNSPEC;
       msg.context = conn;
       CHECK(fi_recvmsg(conn->ep_, &msg, 0));
+      return true;
     }
 
     Buffer *await_resume() { return conn->buffer_.get(); }
