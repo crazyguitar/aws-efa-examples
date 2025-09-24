@@ -5,6 +5,10 @@
 
 namespace coro {
 
+struct promise_handle {
+  virtual void run() = 0;
+};
+
 struct final_awaiter {
   bool await_ready() const noexcept { return false; }
   void await_resume() noexcept {}
@@ -17,7 +21,7 @@ struct final_awaiter {
 };
 
 template <typename T>
-struct promise_base {
+struct promise_base : promise_handle {
   T ret;
   using coro = std::coroutine_handle<promise_base<T>>;
   std::exception_ptr exception;
@@ -26,6 +30,7 @@ struct promise_base {
   auto initial_suspend() { return std::suspend_always(); }
   auto final_suspend() noexcept { return final_awaiter{}; }
   auto unhandled_exception() { exception = std::current_exception(); }
+  void run() final { coro::from_promise(*this).resume(); }
   auto return_value(T &&value) { ret = std::move(value); }
   auto result() {
     if (exception != nullptr) {
@@ -36,7 +41,7 @@ struct promise_base {
 };
 
 template <>
-struct promise_base<void> {
+struct promise_base<void> : promise_handle {
   using coro = std::coroutine_handle<promise_base<void>>;
   std::exception_ptr exception;
   std::coroutine_handle<> next;
@@ -44,6 +49,7 @@ struct promise_base<void> {
   auto initial_suspend() { return std::suspend_always(); }
   auto final_suspend() noexcept { return final_awaiter{}; }
   auto unhandled_exception() { exception = std::current_exception(); }
+  void run() final { coro::from_promise(*this).resume(); }
   void return_void() {}
   void result() {
     if (exception != nullptr) {
