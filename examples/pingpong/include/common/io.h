@@ -32,16 +32,24 @@ class IO {
   inline void Schedule(std::shared_ptr<Task> task) { tasks_.emplace(task); }
   inline void Select() { selector_->Select(); }
   inline void Execute() {
-    std::vector<std::shared_ptr<Task>> expired;
+    std::vector<std::shared_ptr<Task>> done;
     auto now = std::chrono::system_clock::now();
+
     for (auto &t : tasks_) {
-      if (not t->Expired(now)) continue;
-      t->Resume();
-      expired.emplace_back(t);
+      if (t->Unschedule()) {
+        continue;
+      }
+      if (t->Suspending() and t->Expired(now)) {
+        t->Resume();
+        continue;
+      }
+      if (t->Done()) {
+        done.emplace_back(t);
+        continue;
+      }
     }
 
-    // remove expired tasks
-    for (auto &t : expired) {
+    for (auto &t : done) {
       tasks_.erase(t);
     }
   }
