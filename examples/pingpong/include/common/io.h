@@ -9,7 +9,15 @@
 
 class IO {
  public:
-  IO() : selector_{std::make_unique<Selector>()} {}
+  inline static IO &Get() {
+    static IO io;
+    return io;
+  }
+
+  IO(const IO &) = delete;
+  IO(IO &&) = delete;
+  IO &operator=(const IO &) = delete;
+  IO &operator=(IO &&) = delete;
 
   inline void Run() {
     running_ = true;
@@ -37,6 +45,14 @@ class IO {
       tasks_.erase(t);
     }
   }
+
+  inline void Spawn(auto &&coroutine) {
+    [](auto &&c, IO *io) -> coro::oneway::Coro { co_await c; }(std::move(coroutine), this);
+  }
+
+ private:
+  IO() : selector_{std::make_unique<Selector>()} {}
+  ~IO() {}
 
  private:
   std::atomic<bool> running_ = false;

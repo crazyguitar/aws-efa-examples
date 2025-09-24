@@ -9,6 +9,7 @@ binary="${DIR}/../../build/examples/pingpong/pingpong"
 
 srun --container-image "${sqsh}" \
   --container-mounts "${mount}" \
+  --container-name efa \
   --mpi=pmix \
   --ntasks-per-node=1 \
   "${binary}"

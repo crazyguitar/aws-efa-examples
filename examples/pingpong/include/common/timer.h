@@ -7,16 +7,17 @@ class Timer {
  public:
   struct sleep_awaiter {
     IO &io_;
-    td::chrono::milliseconds timeout_;
+    std::chrono::milliseconds timeout_;
     sleep_awaiter(std::chrono::milliseconds timeout, IO &io) : io_{io}, timeout_{timeout} {}
     bool await_ready() const noexcept { return false; }
-    void await_resume() {}
+    void await_resume() noexcept {}
     bool await_suspend(std::coroutine_handle<> coroutine) {
       auto task = std::make_shared<Task>(timeout_);
       task->Suspend(coroutine);
-      io.Schedule(task);
+      io_.Schedule(task);
+      return true;
     }
   };
 
-  sleep_awaiter Sleep(std::chrono::milliseconds duration, IO &io) { return sleep_awaiter(duration, io); }
+  inline static sleep_awaiter Sleep(std::chrono::milliseconds duration, IO &io) { return sleep_awaiter(duration, io); }
 };
