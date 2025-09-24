@@ -13,7 +13,9 @@ class Task {
     coroutine_.resume();
   }
 
-  bool Expired(std::chrono::time_point<std::chrono::system_clock> now) { return std::chrono::duration_cast<std::chrono::milliseconds>(now - start_) > timeout_; }
+  bool Expired(std::chrono::time_point<std::chrono::system_clock> now) {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(now - start_) > timeout_;
+  }
 
  private:
   std::coroutine_handle<> coroutine_ = nullptr;

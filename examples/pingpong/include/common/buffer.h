@@ -25,7 +25,11 @@ class Buffer {
     mr_ = Bind(domain, data_, size_);
   }
 
-  Buffer(Buffer &&other) : raw_{std::exchange(other.raw_, nullptr)}, data_{std::exchange(other.data_, nullptr)}, size_{std::exchange(other.size_, 0)}, mr_{std::exchange(other.mr_, nullptr)} {}
+  Buffer(Buffer &&other)
+      : raw_{std::exchange(other.raw_, nullptr)},
+        data_{std::exchange(other.data_, nullptr)},
+        size_{std::exchange(other.size_, 0)},
+        mr_{std::exchange(other.mr_, nullptr)} {}
 
   Buffer &operator=(Buffer &&other) {
     raw_ = std::exchange(other.raw_, nullptr);
