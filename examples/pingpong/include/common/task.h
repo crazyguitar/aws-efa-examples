@@ -9,7 +9,7 @@ class Task {
   Task(std::chrono::milliseconds timeout) : start_{std::chrono::system_clock::now()}, timeout_{timeout} {}
   void Suspend(std::coroutine_handle<> coroutine) { coroutine_ = coroutine; }
   void Resume() {
-    if (!coroutine_) return;
+    if (!coroutine_ or coroutine_.done()) return;
     coroutine_.resume();
   }
 

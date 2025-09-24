@@ -55,7 +55,7 @@ class Conn {
 
   void Suspend(std::coroutine_handle<> coroutine) { coroutine_ = coroutine; }
   void Resume() {
-    if (!coroutine_) return;
+    if (!coroutine_ or coroutine_.done()) return;
     coroutine_.resume();
   }
 
