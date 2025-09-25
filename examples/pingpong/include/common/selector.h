@@ -1,20 +1,25 @@
 #pragma once
+
+#include <rdma/fabric.h>
+#include <rdma/fi_cm.h>
+#include <rdma/fi_domain.h>
+#include <rdma/fi_endpoint.h>
 #include <spdlog/spdlog.h>
 
-#include <unordered_set>
+#include <vector>
 
-#include "common/conn.h"
-#include "common/efa.h"
+#include "common/event.h"
 #include "common/utils.h"
 
 class Selector {
  public:
-  void Select() {
+  std::vector<Event> Select() {
+    std::vector<Event> ret;
     struct fi_cq_data_entry cq_entries[kMaxCQEntries];
     for (auto cq : cqs_) {
       auto rc = fi_cq_read(cq, cq_entries, kMaxCQEntries);
       if (rc > 0) {
-        HandleCompletion(cq_entries, rc);
+        HandleCompletion(cq_entries, rc, ret);
       } else if (rc == -FI_EAVAIL) {
         HandleError(cq);
       } else if (rc == -FI_EAGAIN) {
@@ -24,22 +29,24 @@ class Selector {
         throw std::runtime_error(msg);
       }
     }
+    return ret;
   }
 
   void Register(struct fid_cq *cq) { cqs_.emplace(cq); }
 
  private:
-  void HandleCompletion(struct fi_cq_data_entry *cq_entries, size_t n) {
+  inline static void HandleCompletion(struct fi_cq_data_entry *cq_entries, size_t n, std::vector<Event> &ret) {
     for (size_t i = 0; i < n; ++i) {
       auto &entry = cq_entries[i];
       auto flags = entry.flags;
-      auto conn = reinterpret_cast<Conn *>(entry.op_context);
-      if (flags & FI_RECV) conn->HandleRecv(entry);
-      if (flags & FI_SEND) conn->HandleSend(entry);
+      Context *context = reinterpret_cast<Context *>(entry.op_context);
+      if (!context) continue;
+      Handle *handle = context->handle;
+      ret.emplace_back(Event{flags, handle});
     }
   }
 
-  void HandleError(struct fid_cq *cq) {
+  inline static void HandleError(struct fid_cq *cq) {
     struct fi_cq_err_entry err_entry;
     auto rc = fi_cq_readerr(cq, &err_entry, 0);
     if (rc < 0) {

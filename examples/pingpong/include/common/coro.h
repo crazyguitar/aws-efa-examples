@@ -3,108 +3,113 @@
 #include <exception>
 #include <utility>
 
-namespace coro {
+#include "common/handle.h"
+#include "common/io.h"
+#include "common/result.h"
+#include "common/utils.h"
 
-struct promise_handle {
-  virtual void run() = 0;
-};
-
-struct final_awaiter {
-  bool await_ready() const noexcept { return false; }
-  void await_resume() noexcept {}
-
-  template <typename P>
-  auto await_suspend(std::coroutine_handle<P> handle) noexcept {
-    auto next = handle.promise().next;
-    return !!next ? next : std::noop_coroutine();
-  }
-};
-
-template <typename T>
-struct promise_base : promise_handle {
-  T ret;
-  using coro = std::coroutine_handle<promise_base<T>>;
-  std::exception_ptr exception;
-  std::coroutine_handle<> next;
-  auto get_return_object() { return coro::from_promise(*this); }
-  auto initial_suspend() { return std::suspend_always(); }
-  auto final_suspend() noexcept { return final_awaiter{}; }
-  auto unhandled_exception() { exception = std::current_exception(); }
-  void run() final { coro::from_promise(*this).resume(); }
-  auto return_value(T &&value) { ret = std::move(value); }
-  auto result() {
-    if (exception != nullptr) {
-      std::rethrow_exception(exception);
-    }
-    return ret;
-  }
-};
-
-template <>
-struct promise_base<void> : promise_handle {
-  using coro = std::coroutine_handle<promise_base<void>>;
-  std::exception_ptr exception;
-  std::coroutine_handle<> next;
-  auto get_return_object() { return coro::from_promise(*this); }
-  auto initial_suspend() { return std::suspend_always(); }
-  auto final_suspend() noexcept { return final_awaiter{}; }
-  auto unhandled_exception() { exception = std::current_exception(); }
-  void run() final { coro::from_promise(*this).resume(); }
-  void return_void() {}
-  void result() {
-    if (exception != nullptr) {
-      std::rethrow_exception(exception);
-    }
-  }
-};
+struct Oneway {};
+inline constexpr Oneway oneway;
 
 template <typename T = void>
-class Coro {
- public:
-  using promise_type = promise_base<T>;
+struct Coro : private NoCopy {
+  struct promise_type;
   using coro = std::coroutine_handle<promise_type>;
 
-  struct Awaiter {
-    coro handle;
-    Awaiter(coro h) : handle{h} {}
-    bool await_ready() const noexcept { return !handle or handle.done(); }
-    auto await_resume() const { return handle.promise().result(); }
-    auto await_suspend(std::coroutine_handle<> coroutine) noexcept {
-      handle.promise().next = coroutine;
-      return handle;
+  template <typename C>
+  friend class Future;
+
+  explicit Coro(coro h) noexcept : handle_{h} {}
+  Coro(Coro&& c) noexcept : handle_(std::exchange(c.handle_, {})) {}
+  ~Coro() { Destroy(); }
+
+  struct awaiter_base {
+    coro h;
+    constexpr bool await_ready() {
+      if (h) return h.done();
+      return true;
+    }
+
+    template <typename Promise>
+    void await_suspend(std::coroutine_handle<Promise> coroutine) const noexcept {
+      coroutine.promise().SetState(Handle::kSuspend);
+      h.promise().next = &coroutine.promise();
+      h.promise().schedule();
     }
   };
 
-  Coro(coro h) : handle_{h} {}
-  ~Coro() {
-    if (handle_) {
-      handle_.destroy();
-    }
+  auto operator co_await() const& noexcept {
+    struct awaiter : awaiter_base {
+      decltype(auto) await_resume() const {
+        if (!awaiter_base::h) throw std::runtime_error("invalid coro handler");
+        return awaiter_base::h.promise().result();
+      }
+    };
+    return awaiter{handle_};
   }
 
-  auto operator co_await() const { return Awaiter{handle_}; }
-  explicit operator bool() { return !handle_.done(); }
-  void resume() {
-    if (!handle_ or handle_.done()) return;
-    handle_.resume();
+  auto operator co_await() const&& noexcept {
+    struct awaiter : awaiter_base {
+      decltype(auto) await_resume() const {
+        if (!awaiter_base::h) throw std::runtime_error("invalid coro handler");
+        return std::move(awaiter_base::h.promise()).result();
+      }
+    };
+    return awaiter{handle_};
+  }
+
+  struct promise_type : Handle, Result<T> {
+    promise_type() = default;
+
+    template <typename... Args>
+    promise_type(Oneway, Args&&...) : oneway_{true} {}
+
+    auto initial_suspend() noexcept {
+      struct init_awaiter {
+        constexpr bool await_ready() const noexcept { return oneway_; }
+        constexpr void await_suspend(std::coroutine_handle<>) const noexcept {}
+        constexpr void await_resume() const noexcept {}
+        const bool oneway_{false};
+      };
+      return init_awaiter{oneway_};
+    }
+
+    struct final_awaiter {
+      constexpr bool await_ready() const noexcept { return false; }
+      constexpr void await_resume() const noexcept {}
+
+      template <typename Promise>
+      constexpr void await_suspend(std::coroutine_handle<Promise> h) const noexcept {
+        if (auto next = h.promise().next) {
+          IO::Get().Call(*next);
+        }
+      }
+    };
+
+    auto final_suspend() noexcept { return final_awaiter{}; };
+
+    Coro get_return_object() noexcept { return Coro{coro::from_promise(*this)}; }
+    void run() final { coro::from_promise(*this).resume(); }
+
+    const bool oneway_{false};
+    Handle* next{nullptr};
+  };  // promise_type
+      //
+  bool valid() const { return handle_ != nullptr; }
+  bool done() const { return handle_.done(); }
+
+  decltype(auto) result() & { return handle_.promise().result(); }
+
+  decltype(auto) result() && { return std::move(handle_.promise()).result(); }
+
+ private:
+  void Destroy() {
+    if (auto handle = std::exchange(handle_, nullptr)) {
+      handle.promise().cancel();
+      handle.destroy();
+    }
   }
 
  private:
   coro handle_;
-};
-
-namespace oneway {
-
-struct Coro {
-  struct promise_type {
-    auto get_return_object() { return Coro{}; }
-    auto initial_suspend() noexcept { return std::suspend_never(); }
-    auto final_suspend() noexcept { return std::suspend_never(); }
-    void unhandled_exception() {}
-    void return_void() noexcept {}
-  };
-};
-
-}  // namespace oneway
-
-}  // namespace coro
+};  // Coro

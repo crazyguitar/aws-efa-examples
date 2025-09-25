@@ -7,8 +7,10 @@
 
 #include <memory>
 #include <unordered_map>
+#include <utility>
 
 #include "common/conn.h"
+#include "common/io.h"
 #include "common/utils.h"
 
 class Net {
@@ -17,7 +19,7 @@ class Net {
   ~Net();
 
   void Open(struct fi_info *info);
-  void Connect(const char *remote);
+  Conn *Connect(const char *remote);
   const char *GetAddr() { return addr_; }
   struct fid_cq *GetCQ() { return cq_; }
 
@@ -29,6 +31,13 @@ class Net {
 
   inline static void Str2Addr(const std::string &addr, char *bytes) {
     for (size_t i = 0; i < kAddrSize; ++i) sscanf(addr.c_str() + 2 * i, "%02hhx", &bytes[i]);
+  }
+
+ private:
+  inline void Register() {
+    if (!cq_) return;
+    auto &io = IO::Get();
+    io.Register(cq_);
   }
 
  private:

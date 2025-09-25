@@ -1,69 +1,92 @@
 #pragma once
 #include <atomic>
+#include <chrono>
+#include <deque>
 #include <memory>
+#include <queue>
+#include <tuple>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
+#include "common/handle.h"
 #include "common/selector.h"
-#include "common/task.h"
+#include "common/utils.h"
 
-class IO {
+class IO : private NoCopy {
  public:
+  using milliseconds = std::chrono::milliseconds;
+  using task_type = std::tuple<milliseconds, uint64_t, Handle *>;
+  using priority_queue = std::priority_queue<task_type, std::vector<task_type>, std::greater<task_type> >;
+
+  IO() : start_{std::chrono::system_clock::now()} {}
+
   inline static IO &Get() {
     static IO io;
     return io;
   }
 
-  IO(const IO &) = delete;
-  IO(IO &&) = delete;
-  IO &operator=(const IO &) = delete;
-  IO &operator=(IO &&) = delete;
+  milliseconds Time() {
+    auto now = std::chrono::system_clock::now();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(now - start_);
+  }
+
+  void Cancel(Handle &) { /* TODO */ }
+  void Call(Handle &handle) {
+    handle.SetState(Handle::kScheduled);
+    ready_.emplace_back(std::addressof(handle));
+  }
+
+  template <typename Rep, typename Period>
+  void Call(std::chrono::duration<Rep, Period> delay, Handle &handle) {
+    handle.SetState(Handle::kScheduled);
+    auto when = Time() + duration_cast<milliseconds>(delay);
+    schedule_.push(task_type{when, handle.GetId(), std::addressof(handle)});
+  }
 
   inline void Run() {
-    running_ = true;
-    while (running_) {
+    while (!Stopped()) {
       Select();
-      Execute();
+      Runone();
     }
   }
 
-  inline void Stop() { running_ = false; }
-  inline void Register(struct fid_cq *cq) { selector_->Register(cq); }
-  inline void Schedule(std::shared_ptr<Task> task) { tasks_.emplace(task); }
-  inline void Select() { selector_->Select(); }
-  inline void Execute() {
-    std::vector<std::shared_ptr<Task>> done;
-    auto now = std::chrono::system_clock::now();
-
-    for (auto &t : tasks_) {
-      if (t->Unschedule()) {
-        continue;
-      }
-      if (t->Suspending() and t->Expired(now)) {
-        t->Resume();
-        continue;
-      }
-      if (t->Done()) {
-        done.emplace_back(t);
-        continue;
-      }
-    }
-
-    for (auto &t : done) {
-      tasks_.erase(t);
+  void Select() {
+    auto events = selector_.Select();
+    for (auto &e : events) {
+      ready_.emplace_back(e.handle);
     }
   }
 
-  inline void Spawn(auto &&coroutine) {
-    [](auto &&c, IO *io) -> coro::oneway::Coro { co_await c; }(std::move(coroutine), this);
+  void Runone() {
+    auto now = Time();
+    while (!schedule_.empty()) {
+      auto &task = schedule_.top();
+      auto &when = std::get<0>(task);
+      auto handle = std::get<2>(task);
+      if (when > now) break;
+      ready_.emplace_back(handle);
+      schedule_.pop();
+    }
+
+    for (size_t n = ready_.size(), i = 0; i < n; ++i) {
+      auto handle = ready_.front();
+      ready_.pop_front();
+      handle->SetState(Handle::kUnschedule);
+      handle->run();
+    }
+  }
+
+  bool Stopped() { return schedule_.empty() and ready_.empty(); }
+
+  template <typename T>
+  void Register(T &&event) {
+    selector_.Register(event);
   }
 
  private:
-  IO() : selector_{std::make_unique<Selector>()} {}
-  ~IO() {}
-
- private:
-  std::atomic<bool> running_ = false;
-  std::unique_ptr<Selector> selector_;
-  std::unordered_set<std::shared_ptr<Task>> tasks_;
+  std::chrono::time_point<std::chrono::system_clock> start_;
+  Selector selector_;
+  priority_queue schedule_;
+  std::deque<Handle *> ready_;
 };

@@ -51,14 +51,11 @@ class Buffer {
     raw_ = nullptr;
     data_ = nullptr;
     size_ = 0;
-    bytes_ = 0;
   }
 
   void *GetData() const { return data_; }
   struct fid_mr *GetMR() const { return mr_; }
   size_t GetSize() const { return size_; }
-  size_t GetBytes() const { return bytes_; }
-  void SetBytes(size_t bytes) { bytes_ = bytes; }
 
  private:
   inline static void *Align(void *ptr, size_t align) {
@@ -82,6 +79,5 @@ class Buffer {
   void *raw_ = nullptr;   // raw memory
   void *data_ = nullptr;  // aligned memory
   size_t size_ = 0;       // total memory size
-  size_t bytes_ = 0;      // number of receive data
   struct fid_mr *mr_ = nullptr;
 };

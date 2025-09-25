@@ -29,3 +29,13 @@ constexpr size_t kAddrSize = 32;
 constexpr size_t kAlign = 128;
 constexpr size_t kBufferSize = 8129;
 constexpr size_t kMaxCQEntries = 16;
+
+struct NoCopy {
+ protected:
+  NoCopy() = default;
+  ~NoCopy() = default;
+  NoCopy(NoCopy&&) = default;
+  NoCopy& operator=(NoCopy&&) = default;
+  NoCopy(const NoCopy&) = delete;
+  NoCopy& operator=(const NoCopy&) = delete;
+};

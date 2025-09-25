@@ -3,8 +3,8 @@ set(target pingpong)
 
 set(ENV{PKG_CONFIG_PATH} "/opt/amazon/efa/lib/pkgconfig")
 find_package(PkgConfig REQUIRED)
-find_package(MPI REQUIRED)
 find_package(Threads REQUIRED)
+find_package(MPI REQUIRED)
 pkg_check_modules(Efa IMPORTED_TARGET libefa)
 pkg_check_modules(Fabric IMPORTED_TARGET libfabric)
 

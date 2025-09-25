@@ -1,23 +1,36 @@
 #pragma once
 
+#include <chrono>
+
+#include "common/coro.h"
 #include "common/io.h"
-#include "common/task.h"
+#include "common/utils.h"
 
-class Timer {
+namespace detail {
+
+template <typename Duration>
+class sleep_awaiter : private NoCopy {
  public:
-  struct sleep_awaiter {
-    IO &io_;
-    std::chrono::milliseconds timeout_;
-    sleep_awaiter(std::chrono::milliseconds timeout, IO &io) : io_{io}, timeout_{timeout} {}
-    bool await_ready() const noexcept { return false; }
-    void await_resume() noexcept {}
-    bool await_suspend(std::coroutine_handle<> coroutine) {
-      auto task = std::make_shared<Task>(timeout_);
-      task->Suspend(coroutine);
-      io_.Schedule(task);
-      return true;
-    }
-  };
+  sleep_awaiter(Duration delay) : delay_{delay} {}
+  constexpr bool await_ready() noexcept { return false; }
+  constexpr void await_resume() const noexcept {}
 
-  inline static sleep_awaiter Sleep(std::chrono::milliseconds duration, IO &io) { return sleep_awaiter(duration, io); }
+  template <typename Promise>
+  void await_suspend(std::coroutine_handle<Promise> coroutine) const noexcept {
+    IO::Get().Call(delay_, coroutine.promise());
+  }
+
+ private:
+  Duration delay_;
 };
+
+template <typename Rep, typename Period>
+Coro<> Sleep(Oneway, std::chrono::duration<Rep, Period> delay) {
+  co_await detail::sleep_awaiter{delay};
+}
+}  // namespace detail
+
+template <typename Rep, typename Period>
+Coro<> Sleep(std::chrono::duration<Rep, Period> delay) {
+  return detail::Sleep(oneway, delay);
+}

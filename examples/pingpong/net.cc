@@ -1,6 +1,6 @@
 #include "common/net.h"
 
-void Net::Connect(const char *remote) {
+Conn *Net::Connect(const char *remote) {
   fi_addr_t addr = FI_ADDR_UNSPEC;
   int rc = 0;
   rc = fi_av_insert(av_, remote, 1, &addr, 0, nullptr);
@@ -9,7 +9,10 @@ void Net::Connect(const char *remote) {
     throw std::runtime_error(msg);
   }
 
-  conns_.emplace(Addr2Str(remote), std::make_unique<Conn>(ep_, domain_));
+  auto key = Addr2Str(remote);
+  auto conn = std::make_unique<Conn>(ep_, domain_);
+  conns_.emplace(key, std::move(conn));
+  return conn.get();
 }
 
 void Net::Open(struct fi_info *info) {
@@ -29,6 +32,7 @@ void Net::Open(struct fi_info *info) {
 
   size_t len = sizeof(addr_);
   CHECK(fi_getname(&ep_->fid, addr_, &len));
+  Register();
 }
 
 Net::~Net() {

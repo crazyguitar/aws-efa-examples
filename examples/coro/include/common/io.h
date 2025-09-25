@@ -23,6 +23,8 @@ class IO : private NoCopy {
     return io;
   }
 
+  IO() : start_{std::chrono::system_clock::now()} {}
+
   milliseconds Time() {
     auto now = std::chrono::system_clock::now();
     return std::chrono::duration_cast<std::chrono::milliseconds>(now - start_);
@@ -70,7 +72,6 @@ class IO : private NoCopy {
 
  private:
   std::chrono::time_point<std::chrono::system_clock> start_;
-
   priority_queue schedule_;
   std::deque<Handle *> ready_;
 };
