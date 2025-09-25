@@ -11,15 +11,22 @@
 
 #include "common/utils.h"
 
+#define BUFFER_ASSERT(exp)                                              \
+  do {                                                                  \
+    if (!(exp)) {                                                       \
+      auto msg = fmt::format(#exp " fail. error: {}", strerror(errno)); \
+      SPDLOG_ERROR(msg);                                                \
+      throw std::runtime_error(msg);                                    \
+    }                                                                   \
+  } while (0)
+
 class Buffer {
  public:
   Buffer() = default;
   Buffer(struct fid_domain *domain, size_t size, size_t align = kAlign) {
+    ASSERT(!!domain);
     raw_ = malloc(size);
-    if (!raw_) {
-      auto msg = fmt::format("malloc fail. error: {}", strerror(errno));
-      throw std::runtime_error(msg);
-    }
+    BUFFER_ASSERT(raw_);
     data_ = Align(raw_, align);
     size_ = (size_t)((uintptr_t)raw_ + size - (uintptr_t)data_);
     mr_ = Bind(domain, data_, size_);

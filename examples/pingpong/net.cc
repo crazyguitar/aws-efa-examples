@@ -3,7 +3,7 @@
 Conn *Net::Connect(const char *remote) {
   fi_addr_t addr = FI_ADDR_UNSPEC;
   int rc = 0;
-  rc = fi_av_insert(av_, remote, 1, &addr, 0, nullptr);
+  EXPECT(fi_av_insert(av_, remote, 1, &addr, 0, nullptr), 1);
   if (rc != 1) {
     auto msg = fmt::format("fi_av_insert failed. error({}): {}", rc, fi_strerror(-rc));
     throw std::runtime_error(msg);

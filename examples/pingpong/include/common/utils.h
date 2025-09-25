@@ -13,6 +13,16 @@
     }                                                                            \
   } while (0)
 
+#define EXPECT(exp, expect)                                                      \
+  do {                                                                           \
+    auto rc = exp;                                                               \
+    if (rc != expect) {                                                          \
+      auto msg = fmt::format(#exp " fail. error({}): {}", rc, fi_strerror(-rc)); \
+      SPDLOG_ERROR(msg);                                                         \
+      throw std::runtime_error(msg);                                             \
+    }                                                                            \
+  } while (0)
+
 #define ASSERT(exp)                                    \
   do {                                                 \
     if (!(exp)) {                                      \
