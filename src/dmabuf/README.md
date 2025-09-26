@@ -1,4 +1,4 @@
-# EFA Example: Send/Recv messages between ranks
+# EFA Example: GPU dmabuf example
 
 ```
 # create a sqush file in project's root
