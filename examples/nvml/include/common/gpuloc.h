@@ -1,6 +1,7 @@
 #pragma once
 
 #include <hwloc.h>
+#include <nvml.h>
 #include <spdlog/spdlog.h>
 #include <string.h>
 
@@ -22,6 +23,26 @@
       SPDLOG_ERROR(msg);                                                \
       throw std::runtime_error(msg);                                    \
     }                                                                   \
+  } while (0)
+
+#define GPULOC_ASSERT(exp)                             \
+  do {                                                 \
+    if (!(exp)) {                                      \
+      auto msg = fmt::format(#exp " assertion fail."); \
+      SPDLOG_ERROR(msg);                               \
+      throw std::runtime_error(msg);                   \
+    }                                                  \
+  } while (0)
+
+#define NVML_CHECK(exp)                                     \
+  do {                                                      \
+    nvmlReturn_t res = exp;                                 \
+    if (res != NVML_SUCCESS) {                              \
+      const char *err = nvmlErrorString(res);               \
+      auto msg = fmt::format(#exp " fail. error: {}", err); \
+      SPDLOG_ERROR(msg);                                    \
+      throw std::runtime_error(msg);                        \
+    }                                                       \
   } while (0)
 
 /** @brief NVIDIA PCI vendor ID */
@@ -213,12 +234,17 @@ struct GPUAffinity {
  */
 class GPUloc {
  public:
-  using affinity_type = std::unordered_map<hwloc_obj_t, GPUAffinity>;
+  using affinity_type = std::vector<GPUAffinity>;
 
   /**
    * @brief Constructor - discovers hardware topology and builds GPU affinity map
    */
-  GPUloc() : hwloc_{Hwloc()}, affinity_{GetAffinity(hwloc_)} {}
+  GPUloc() : hwloc_{Hwloc()} {
+    NVML_CHECK(nvmlInit());
+    affinity_ = GetAffinity(hwloc_);
+  }
+
+  ~GPUloc() { nvmlShutdown(); }
 
   /**
    * @brief Get GPU affinity mapping
@@ -233,7 +259,7 @@ class GPUloc {
    * @return GPU affinity mapping
    */
   static affinity_type GetAffinity(Hwloc &hwloc) {
-    std::unordered_map<hwloc_obj_t, GPUAffinity> affinity;
+    std::unordered_map<hwloc_obj_t, GPUAffinity> gpuloc;
     for (auto &numa : hwloc.GetNumaNodes()) {
       for (auto &bridge : numa.bridge) {
         std::vector<hwloc_obj_t> gpus;
@@ -247,9 +273,28 @@ class GPUloc {
         }
         std::vector<hwloc_obj_t> cores(numa.cores.begin(), numa.cores.end());
         std::sort(cores.begin(), cores.end(), [](auto &&x, auto &&y) { return x->logical_index < y->logical_index; });
-        for (auto &gpu : gpus) affinity[gpu] = GPUAffinity{gpu, numa.numanode, cores, efas};
+        for (auto &gpu : gpus) gpuloc[gpu] = GPUAffinity{gpu, numa.numanode, cores, efas};
       }
     }
+
+    // create an affinity by GPU index
+    unsigned count = 0;
+    NVML_CHECK(nvmlDeviceGetCount(&count));
+    GPULOC_ASSERT(count == gpuloc.size());
+    affinity_type affinity;
+    for (unsigned i = 0; i < count; ++i) {
+      nvmlDevice_t device;
+      nvmlPciInfo_t pci;
+      NVML_CHECK(nvmlDeviceGetHandleByIndex(i, &device));
+      NVML_CHECK(nvmlDeviceGetPciInfo(device, &pci));
+      for (auto &[gpu, loc] : gpuloc) {
+        if (gpu->attr->pcidev.domain == pci.domain and gpu->attr->pcidev.bus == pci.bus and gpu->attr->pcidev.dev == pci.device and
+            gpu->attr->pcidev.func == 0) {
+          affinity.emplace_back(loc);
+        }
+      }
+    }
+    GPULOC_ASSERT(gpuloc.size() == affinity.size());
     return affinity;
   }
 
@@ -260,13 +305,13 @@ class GPUloc {
    * @return Reference to output stream
    */
   friend std::ostream &operator<<(std::ostream &os, const GPUloc &loc) {
-    for (auto &x : loc.affinity_) {
-      auto &affinity = x.second;
+    for (size_t i = 0; i < loc.affinity_.size(); ++i) {
+      auto &affinity = loc.affinity_[i];
       auto numanode = affinity.numanode;
       auto gpu = affinity.gpu;
       auto &cores = affinity.cores;
       auto &efas = affinity.efas;
-      os << fmt::format("GPU ({:02x}:{:02x}.{:01x})", gpu->attr->pcidev.bus, gpu->attr->pcidev.dev, gpu->attr->pcidev.func);
+      os << fmt::format("GPU({}) ({:02x}:{:02x}.{:01x})", i, gpu->attr->pcidev.bus, gpu->attr->pcidev.dev, gpu->attr->pcidev.func);
       os << fmt::format(" NUMA{}", numanode->logical_index);
       os << fmt::format(" Core{:>2}-Core{:>2}", cores.front()->logical_index, cores.back()->logical_index);
       os << "\n";
