@@ -7,13 +7,24 @@
 
 #include "common/utils.h"
 
+/**
+ * @brief Singleton class for EFA (Elastic Fabric Adapter) initialization and management
+ */
 class EFA : private NoCopy {
  public:
+  /**
+   * @brief Get singleton EFA instance
+   * @return Reference to the EFA singleton
+   */
   inline static EFA &Get() {
     static EFA efa;
     return efa;
   }
 
+  /**
+   * @brief Get EFA fabric information
+   * @return Pointer to fabric info structure
+   */
   struct fi_info *GetEFAInfo() { return info_; }
 
  private:

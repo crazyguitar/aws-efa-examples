@@ -8,6 +8,10 @@
 
 namespace detail {
 
+/**
+ * @brief Awaiter for coroutine sleep operations
+ * @tparam Duration Duration type for sleep delay
+ */
 template <typename Duration>
 class sleep_awaiter : private NoCopy {
  public:
@@ -24,12 +28,22 @@ class sleep_awaiter : private NoCopy {
   Duration delay_;
 };
 
+/**
+ * @brief Internal sleep implementation
+ * @param delay Duration to sleep
+ * @return Coroutine that suspends for the specified duration
+ */
 template <typename Rep, typename Period>
 Coro<> Sleep(Oneway, std::chrono::duration<Rep, Period> delay) {
   co_await detail::sleep_awaiter{delay};
 }
 }  // namespace detail
 
+/**
+ * @brief Sleep for specified duration in a coroutine
+ * @param delay Duration to sleep
+ * @return Coroutine that suspends for the specified duration
+ */
 template <typename Rep, typename Period>
 Coro<> Sleep(std::chrono::duration<Rep, Period> delay) {
   return detail::Sleep(oneway, delay);

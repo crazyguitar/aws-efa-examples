@@ -10,8 +10,17 @@
 #include "common/event.h"
 #include "common/utils.h"
 
+/**
+ * @brief RDMA connection with coroutine-based async I/O
+ */
 class Conn : private NoCopy {
  public:
+  /**
+   * @brief Create connection with endpoint and buffers
+   * @param ep Fabric endpoint handle
+   * @param domain RDMA domain for buffer registration
+   * @param remote Remote endpoint address
+   */
   Conn(struct fid_ep *ep, struct fid_domain *domain, fi_addr_t remote)
       : ep_{ep}, remote_{remote}, recv_buffer_{Buffer(domain, kBufferSize)}, send_buffer_{Buffer(domain, kBufferSize)} {}
 
@@ -85,11 +94,24 @@ class Conn : private NoCopy {
     }
   };
 
+  /**
+   * @brief Asynchronously receive data
+   * @param sz Maximum bytes to receive (default: kBufferSize)
+   * @return Coroutine yielding {buffer_ptr, actual_size}
+   * @throws std::invalid_argument if sz <= 0
+   */
   Coro<std::pair<char *, size_t>> Recv(size_t sz = kBufferSize) {
     if (sz <= 0) throw std::invalid_argument("Recv buffer size should be greater than 0");
     co_return co_await recv_awaiter(this, sz);
   }
 
+  /**
+   * @brief Asynchronously send data
+   * @param data Data buffer to send
+   * @param sz Number of bytes to send
+   * @return Coroutine yielding bytes sent
+   * @throws std::invalid_argument if data is NULL or sz <= 0
+   */
   Coro<size_t> Send(const char *data, size_t sz) {
     if (!data) throw std::invalid_argument("Send data is NULL");
     if (sz <= 0) throw std::invalid_argument("Send buffer size should be greater than 0");
@@ -98,7 +120,9 @@ class Conn : private NoCopy {
     co_return co_await send_awaiter(this, sz);
   }
 
+  /** @brief Get send buffer reference */
   inline Buffer &GetSendBuffer() noexcept { return send_buffer_; }
+  /** @brief Get receive buffer reference */
   inline Buffer &GetRecvBuffer() noexcept { return recv_buffer_; }
 
  private:

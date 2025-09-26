@@ -13,6 +13,9 @@
 #include "common/selector.h"
 #include "common/utils.h"
 
+/**
+ * @brief Asynchronous I/O event loop with task scheduling
+ */
 class IO : private NoCopy {
  public:
   using milliseconds = std::chrono::milliseconds;
@@ -21,22 +24,44 @@ class IO : private NoCopy {
 
   IO() : start_{std::chrono::system_clock::now()} {}
 
+  /**
+   * @brief Get singleton IO instance
+   * @return Reference to the IO singleton
+   */
   inline static IO &Get() {
     static IO io;
     return io;
   }
 
+  /**
+   * @brief Get current time since IO start
+   * @return Time in milliseconds
+   */
   milliseconds Time() {
     auto now = std::chrono::system_clock::now();
     return std::chrono::duration_cast<std::chrono::milliseconds>(now - start_);
   }
 
+  /**
+   * @brief Cancel a scheduled handle (TODO: implementation)
+   * @param handle Handle to cancel
+   */
   void Cancel(Handle &) { /* TODO */ }
+
+  /**
+   * @brief Schedule handle for immediate execution
+   * @param handle Handle to execute
+   */
   void Call(Handle &handle) {
     handle.SetState(Handle::kScheduled);
     ready_.emplace_back(std::addressof(handle));
   }
 
+  /**
+   * @brief Schedule handle for delayed execution
+   * @param delay Time delay before execution
+   * @param handle Handle to execute
+   */
   template <typename Rep, typename Period>
   void Call(std::chrono::duration<Rep, Period> delay, Handle &handle) {
     handle.SetState(Handle::kScheduled);
@@ -44,6 +69,9 @@ class IO : private NoCopy {
     schedule_.push(task_type{when, handle.GetId(), std::addressof(handle)});
   }
 
+  /**
+   * @brief Run the event loop until stopped
+   */
   inline void Run() {
     while (!Stopped()) {
       Select();
@@ -51,6 +79,9 @@ class IO : private NoCopy {
     }
   }
 
+  /**
+   * @brief Poll for I/O events and schedule ready handles
+   */
   inline void Select() {
     auto events = selector_.Select();
     for (auto &e : events) {
@@ -58,6 +89,9 @@ class IO : private NoCopy {
     }
   }
 
+  /**
+   * @brief Execute one iteration of scheduled tasks
+   */
   inline void Runone() {
     auto now = Time();
     while (!schedule_.empty()) {
@@ -77,13 +111,25 @@ class IO : private NoCopy {
     }
   }
 
+  /**
+   * @brief Check if event loop should stop
+   * @return true if no pending tasks or events
+   */
   inline bool Stopped() const noexcept { return schedule_.empty() and ready_.empty() and selector_.Stopped(); }
 
+  /**
+   * @brief Register event source with selector
+   * @param event Event source to register
+   */
   template <typename T>
   inline void Register(T &&event) {
     selector_.Register(event);
   }
 
+  /**
+   * @brief Unregister event source from selector
+   * @param event Event source to unregister
+   */
   template <typename T>
   inline void UnRegister(T &&event) {
     selector_.UnRegister(event);

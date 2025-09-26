@@ -20,9 +20,20 @@
     }                                                                   \
   } while (0)
 
+/**
+ * @brief RDMA memory buffer with automatic registration
+ */
 class Buffer {
  public:
   Buffer() = default;
+
+  /**
+   * @brief Create aligned buffer and register with domain
+   * @param domain RDMA domain for memory registration
+   * @param size Buffer size in bytes
+   * @param align Memory alignment (default: kAlign)
+   * @throws std::runtime_error on allocation or registration failure
+   */
   Buffer(struct fid_domain *domain, size_t size, size_t align = kAlign) {
     ASSERT(!!domain);
     raw_ = malloc(size);
@@ -60,8 +71,22 @@ class Buffer {
     size_ = 0;
   }
 
+  /**
+   * @brief Get buffer data pointer
+   * @return Aligned data pointer
+   */
   void *GetData() const { return data_; }
+
+  /**
+   * @brief Get memory region handle
+   * @return RDMA memory region descriptor
+   */
   struct fid_mr *GetMR() const { return mr_; }
+
+  /**
+   * @brief Get usable buffer size
+   * @return Size in bytes
+   */
   size_t GetSize() const { return size_; }
 
  private:

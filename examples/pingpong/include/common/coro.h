@@ -8,9 +8,15 @@
 #include "common/result.h"
 #include "common/utils.h"
 
+/** @brief Tag type for one-way coroutines */
 struct Oneway {};
+/** @brief Global instance of oneway tag */
 inline constexpr Oneway oneway;
 
+/**
+ * @brief Coroutine wrapper with async execution support
+ * @tparam T Return value type (default: void)
+ */
 template <typename T = void>
 struct Coro : private NoCopy {
   struct promise_type;

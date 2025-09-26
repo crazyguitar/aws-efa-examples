@@ -14,22 +14,57 @@
 #include "common/io.h"
 #include "common/utils.h"
 
+/**
+ * @brief Network abstraction for EFA fabric operations
+ */
 class Net {
  public:
   Net() = default;
   ~Net();
 
+  /**
+   * @brief Initialize network with fabric info
+   * @param info Fabric information structure
+   * @throws std::runtime_error on fabric initialization failure
+   */
   void Open(struct fi_info *info);
+
+  /**
+   * @brief Establish connection to remote endpoint
+   * @param remote Remote endpoint address string
+   * @return Pointer to connection object
+   * @throws std::runtime_error on connection failure
+   */
   Conn *Connect(const char *remote);
+
+  /**
+   * @brief Get local endpoint address
+   * @return Local address buffer
+   */
   const char *GetAddr() { return addr_; }
+
+  /**
+   * @brief Get completion queue handle
+   * @return Completion queue file descriptor
+   */
   struct fid_cq *GetCQ() { return cq_; }
 
+  /**
+   * @brief Convert binary address to hex string
+   * @param addr Binary address buffer
+   * @return Hex string representation
+   */
   inline static std::string Addr2Str(const char *addr) {
     std::string out;
     for (size_t i = 0; i < kAddrSize; ++i) out += fmt::format("{:02x}", addr[i]);
     return out;
   }
 
+  /**
+   * @brief Convert hex string to binary address
+   * @param addr Hex string address
+   * @param bytes Output binary buffer
+   */
   inline static void Str2Addr(const std::string &addr, char *bytes) {
     for (size_t i = 0; i < kAddrSize; ++i) sscanf(addr.c_str() + 2 * i, "%02hhx", &bytes[i]);
   }

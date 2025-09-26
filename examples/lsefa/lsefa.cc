@@ -3,6 +3,9 @@
 
 #include <iostream>
 
+/**
+ * ref: https://github.com/aws/libfabric/blob/master/util/info.c
+ */
 struct fi_info *GetInfo() {
   int rc = 0;
   struct fi_info *hints = nullptr;

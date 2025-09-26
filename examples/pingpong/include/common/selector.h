@@ -12,8 +12,16 @@
 #include "common/event.h"
 #include "common/utils.h"
 
+/**
+ * @brief Event selector for polling completion queues
+ */
 class Selector {
  public:
+  /**
+   * @brief Poll completion queues for events
+   * @return Vector of ready events
+   * @throws std::runtime_error on fatal CQ errors
+   */
   inline std::vector<Event> Select() {
     std::vector<Event> ret;
     struct fi_cq_data_entry cq_entries[kMaxCQEntries];
@@ -33,8 +41,22 @@ class Selector {
     return ret;
   }
 
+  /**
+   * @brief Register completion queue for polling
+   * @param cq Completion queue to register
+   */
   inline void Register(struct fid_cq *cq) { cqs_.emplace(cq); }
+
+  /**
+   * @brief Unregister completion queue from polling
+   * @param cq Completion queue to unregister
+   */
   inline void UnRegister(struct fid_cq *cq) { cqs_.erase(cq); }
+
+  /**
+   * @brief Check if selector has no registered queues
+   * @return true if no completion queues registered
+   */
   inline bool Stopped() const noexcept { return cqs_.empty(); }
 
  private:

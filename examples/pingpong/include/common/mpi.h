@@ -4,8 +4,15 @@
 
 #include <iostream>
 
+/**
+ * @brief Singleton wrapper for MPI initialization and process information
+ */
 class MPI {
  public:
+  /**
+   * @brief Get singleton MPI instance
+   * @return Reference to the MPI singleton
+   */
   inline static MPI &Get() {
     static MPI mpi;
     return mpi;
@@ -16,12 +23,19 @@ class MPI {
   MPI &operator=(const MPI &) = delete;
   MPI &operator=(MPI &&) = delete;
 
+  /** @brief Get total number of MPI processes */
   inline int GetWorldSize() const noexcept { return world_size_; }
+  /** @brief Get current process rank in world communicator */
   inline int GetWorldRank() const noexcept { return world_rank_; }
+  /** @brief Get number of processes on local node */
   inline int GetLocalSize() const noexcept { return local_size_; }
+  /** @brief Get current process rank on local node */
   inline int GetLocalRank() const noexcept { return local_rank_; }
+  /** @brief Get total number of compute nodes */
   inline int GetNumNodes() const noexcept { return num_nodes_; }
+  /** @brief Get current node index */
   inline int GetNodeIndex() const noexcept { return node_; };
+  /** @brief Get processor name string */
   const char *GetProcessName() const noexcept { return processor_name_; }
 
  private:
