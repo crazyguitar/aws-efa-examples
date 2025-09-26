@@ -16,12 +16,12 @@ class MPI {
   MPI &operator=(const MPI &) = delete;
   MPI &operator=(MPI &&) = delete;
 
-  int GetWorldSize() const noexcept { return world_size_; }
-  int GetWorldRank() const noexcept { return world_rank_; }
-  int GetLocalSize() const noexcept { return local_size_; }
-  int GetLocalRank() const noexcept { return local_rank_; }
-  int GetNumNodes() const noexcept { return num_nodes_; }
-  int GetNodeIndex() const noexcept { return node_; };
+  inline int GetWorldSize() const noexcept { return world_size_; }
+  inline int GetWorldRank() const noexcept { return world_rank_; }
+  inline int GetLocalSize() const noexcept { return local_size_; }
+  inline int GetLocalRank() const noexcept { return local_rank_; }
+  inline int GetNumNodes() const noexcept { return num_nodes_; }
+  inline int GetNodeIndex() const noexcept { return node_; };
   const char *GetProcessName() const noexcept { return processor_name_; }
 
  private:

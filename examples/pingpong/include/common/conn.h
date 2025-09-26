@@ -98,8 +98,8 @@ class Conn : private NoCopy {
     co_return co_await send_awaiter(this, sz);
   }
 
-  Buffer &GetSendBuffer() noexcept { return send_buffer_; }
-  Buffer &GetRecvBuffer() noexcept { return recv_buffer_; }
+  inline Buffer &GetSendBuffer() noexcept { return send_buffer_; }
+  inline Buffer &GetRecvBuffer() noexcept { return recv_buffer_; }
 
  private:
   struct fid_ep *ep_ = nullptr;

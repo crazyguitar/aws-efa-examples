@@ -10,9 +10,9 @@ struct Handle {
   virtual ~Handle() = default;
   virtual void run() = 0;
 
-  void SetState(State state) { state_ = state; }
-  State GetState() noexcept { return state_; }
-  uint64_t GetId() noexcept { return id_; }
+  inline void SetState(State state) { state_ = state; }
+  inline State GetState() noexcept { return state_; }
+  inline uint64_t GetId() noexcept { return id_; }
 
   void schedule();
   void cancel();

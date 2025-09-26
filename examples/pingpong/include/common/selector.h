@@ -14,7 +14,7 @@
 
 class Selector {
  public:
-  std::vector<Event> Select() {
+  inline std::vector<Event> Select() {
     std::vector<Event> ret;
     struct fi_cq_data_entry cq_entries[kMaxCQEntries];
     for (auto cq : cqs_) {
@@ -33,8 +33,8 @@ class Selector {
     return ret;
   }
 
-  void Register(struct fid_cq *cq) { cqs_.emplace(cq); }
-  void UnRegister(struct fid_cq *cq) { cqs_.erase(cq); }
+  inline void Register(struct fid_cq *cq) { cqs_.emplace(cq); }
+  inline void UnRegister(struct fid_cq *cq) { cqs_.erase(cq); }
   inline bool Stopped() const noexcept { return cqs_.empty(); }
 
  private:

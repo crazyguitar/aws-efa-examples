@@ -11,13 +11,13 @@ class Future : private NoCopy {
     }
   }
 
-  void Cancel() { coro_.destroy(); }
+  inline void Cancel() { coro_.destroy(); }
   decltype(auto) operator co_await() const & noexcept { return coro_.operator co_await(); }
   auto operator co_await() const && noexcept { return coro_.operator co_await(); }
   decltype(auto) result() & { return coro_.result(); }
   decltype(auto) result() && { return std::move(coro_).result(); }
-  bool valid() const { return coro_.valid(); }
-  bool done() const { return coro_.done(); }
+  inline bool valid() const { return coro_.valid(); }
+  inline bool done() const { return coro_.done(); }
 
  private:
   C coro_;

@@ -7,17 +7,13 @@
 
 #include "common/utils.h"
 
-class EFA {
+class EFA : private NoCopy {
  public:
   inline static EFA &Get() {
     static EFA efa;
     return efa;
   }
 
-  EFA(const EFA &) = delete;
-  EFA(EFA &&) = delete;
-  EFA &operator=(const EFA &) = delete;
-  EFA &operator=(EFA &&) = delete;
   struct fi_info *GetEFAInfo() { return info_; }
 
  private:

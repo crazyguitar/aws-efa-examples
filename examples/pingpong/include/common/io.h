@@ -51,14 +51,14 @@ class IO : private NoCopy {
     }
   }
 
-  void Select() {
+  inline void Select() {
     auto events = selector_.Select();
     for (auto &e : events) {
       Call(*e.handle);
     }
   }
 
-  void Runone() {
+  inline void Runone() {
     auto now = Time();
     while (!schedule_.empty()) {
       auto &task = schedule_.top();
@@ -77,15 +77,15 @@ class IO : private NoCopy {
     }
   }
 
-  bool Stopped() { return schedule_.empty() and ready_.empty() and selector_.Stopped(); }
+  inline bool Stopped() const noexcept { return schedule_.empty() and ready_.empty() and selector_.Stopped(); }
 
   template <typename T>
-  void Register(T &&event) {
+  inline void Register(T &&event) {
     selector_.Register(event);
   }
 
   template <typename T>
-  void UnRegister(T &&event) {
+  inline void UnRegister(T &&event) {
     selector_.UnRegister(event);
   }
 
