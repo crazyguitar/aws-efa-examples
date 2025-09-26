@@ -75,6 +75,13 @@ struct Coro : private NoCopy {
     return awaiter{handle_};
   }
 
+  /**
+   * @brief Promise type for C++20 coroutines
+   *
+   * Implements the coroutine promise interface required by the C++ standard.
+   * Inherits from Handle for scheduling and Result<T> for value storage.
+   * Manages coroutine lifecycle, suspension points, and continuation chains.
+   */
   struct promise_type : Handle, Result<T> {
     promise_type() = default;
 
