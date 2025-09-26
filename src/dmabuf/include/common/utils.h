@@ -1,7 +1,11 @@
 #pragma once
 
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include <rdma/fabric.h>
 #include <spdlog/spdlog.h>
+
+#include <sstream>
 
 /**
  * @brief Check fabric operation return code and throw on error
@@ -32,6 +36,28 @@
       SPDLOG_ERROR(msg);                                                         \
       throw std::runtime_error(msg);                                             \
     }                                                                            \
+  } while (0)
+
+#define CUDA_CHECK(exp)                                                                                                     \
+  do {                                                                                                                      \
+    cudaError_t err = (exp);                                                                                                \
+    if (err != cudaSuccess) {                                                                                               \
+      std::stringstream ss;                                                                                                 \
+      ss << "CUDA Error at " << __FILE__ << ":" << __LINE__ << ": " << cudaGetErrorString(err) << " (code: " << err << ")"; \
+      throw std::runtime_error(ss.str());                                                                                   \
+    }                                                                                                                       \
+  } while (0)
+
+#define CU_CHECK(exp)                                                                                                                    \
+  do {                                                                                                                                   \
+    CUresult rc = (exp);                                                                                                                 \
+    if (rc != CUDA_SUCCESS) {                                                                                                            \
+      const char* err_str = nullptr;                                                                                                     \
+      cuGetErrorString(rc, &err_str);                                                                                                    \
+      std::stringstream ss;                                                                                                              \
+      ss << __FILE__ << ":" << __LINE__ << " " << #exp << " failed with " << rc << " (" << (err_str ? err_str : "Unknown error") << ")"; \
+      throw std::runtime_error(ss.str());                                                                                                \
+    }                                                                                                                                    \
   } while (0)
 
 /**

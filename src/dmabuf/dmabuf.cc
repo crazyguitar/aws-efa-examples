@@ -1,15 +1,14 @@
-#include "common/efa.h"
-
 #include <cstring>
 #include <iostream>
 #include <string>
 
 #include "common/coro.h"
+#include "common/efa.h"
+#include "common/gpuloc.h"
 #include "common/mpi.h"
 #include "common/net.h"
 #include "common/runner.h"
 #include "common/timer.h"
-#include "common/gpuloc.h"
 
 void AllGatherAddr(const char *addr, int rank, std::string &endpoints) {
   std::memcpy(endpoints.data() + ENDPOINT_IDX(rank), addr, kMaxAddrSize);

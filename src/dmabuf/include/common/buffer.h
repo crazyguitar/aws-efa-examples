@@ -1,14 +1,14 @@
 #pragma once
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include <errno.h>
 #include <rdma/fabric.h>
 #include <rdma/fi_cm.h>
 #include <rdma/fi_domain.h>
 #include <rdma/fi_endpoint.h>
 #include <rdma/fi_errno.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
-
 #include <stdlib.h>
+
 #include <utility>
 
 #include "common/utils.h"
@@ -32,12 +32,14 @@ class Buffer {
   Buffer(Buffer &&other)
       : raw_{std::exchange(other.raw_, nullptr)},
         data_{std::exchange(other.data_, nullptr)},
-        size_{std::exchange(other.size_, 0)} {}
+        size_{std::exchange(other.size_, 0)},
+        mr_{std::exchange(other.mr_, nullptr)} {}
 
   Buffer &operator=(Buffer &&other) {
     raw_ = std::exchange(other.raw_, nullptr);
     data_ = std::exchange(other.data_, nullptr);
     size_ = std::exchange(other.size_, 0);
+    mr_ = std::exchange(other.mr_, nullptr);
     return *this;
   }
 
@@ -46,7 +48,7 @@ class Buffer {
       fi_close((fid_t)mr_);
       mr_ = nullptr;
     }
-    if (!raw_) {
+    if (raw_) {
       free(raw_);
       raw_ = nullptr;
     }
@@ -106,7 +108,7 @@ class HostBuffer : public Buffer {
     mr_ = Bind(domain, data_, size_);
   }
 
- protected:
+ private:
   inline static struct fid_mr *Bind(struct fid_domain *domain, void *data, size_t size) {
     struct fid_mr *mr;
     struct fi_mr_attr mr_attr = {};
@@ -118,4 +120,76 @@ class HostBuffer : public Buffer {
     CHECK(fi_mr_regattr(domain, &mr_attr, flags, &mr));
     return mr;
   }
+};
+
+class CUDABuffer : public Buffer {
+ public:
+  CUDABuffer() = default;
+
+  CUDABuffer(struct fid_domain *domain, size_t size, size_t align = kAlign) {
+    struct cudaPointerAttributes attrs = {};
+    CUDA_CHECK(cudaMalloc(&raw_, size));
+    CUDA_CHECK(cudaPointerGetAttributes(&attrs, raw_));
+    ASSERT(attrs.type == cudaMemoryTypeDevice);
+    CU_CHECK(cuMemGetHandleForAddressRange(&dmabuf_fd_, (CUdeviceptr)Align(raw_, align), size, CU_MEM_RANGE_HANDLE_TYPE_DMA_BUF_FD, 0));
+    ASSERT(dmabuf_fd_ != -1);
+    data_ = Align(raw_, align);
+    device_ = attrs.device;
+    size_ = (size_t)((uintptr_t)raw_ + size - (uintptr_t)data_);
+    mr_ = Bind(domain, data_, size_, dmabuf_fd_, device_);
+  }
+
+  CUDABuffer(CUDABuffer &&other)
+      : Buffer(std::move(other)), dmabuf_fd_{std::exchange(other.dmabuf_fd_, -1)}, device_{std::exchange(other.device_, -1)} {}
+
+  CUDABuffer &operator=(CUDABuffer &&other) {
+    raw_ = std::exchange(other.raw_, nullptr);
+    data_ = std::exchange(other.data_, nullptr);
+    size_ = std::exchange(other.size_, 0);
+    mr_ = std::exchange(other.mr_, nullptr);
+    dmabuf_fd_ = std::exchange(other.dmabuf_fd_, -1);
+    device_ = std::exchange(other.device_, -1);
+    return *this;
+  }
+
+  ~CUDABuffer() {
+    if (mr_) {
+      fi_close((fid_t)mr_);
+      mr_ = nullptr;
+    }
+    if (raw_) {
+      cudaFree(raw_);
+      raw_ = nullptr;
+    }
+    data_ = nullptr;
+    size_ = 0;
+    dmabuf_fd_ = -1;
+    device_ = -1;
+  }
+
+ private:
+  inline static struct fid_mr *Bind(struct fid_domain *domain, void *data, size_t size, int dmabuf_fd, int device) {
+    struct fid_mr *mr;
+    struct fi_mr_attr mr_attr = {};
+    struct fi_mr_dmabuf dmabuf = {};
+    uint64_t flags = 0;
+
+    dmabuf.fd = dmabuf_fd;
+    dmabuf.offset = 0;
+    dmabuf.len = size;
+    dmabuf.base_addr = data;
+
+    mr_attr.access = FI_SEND | FI_RECV | FI_REMOTE_WRITE | FI_REMOTE_READ | FI_WRITE | FI_READ;
+    mr_attr.iface = FI_HMEM_CUDA;
+    mr_attr.device.cuda = device;
+    mr_attr.dmabuf = &dmabuf;
+
+    flags = FI_MR_DMABUF;
+    CHECK(fi_mr_regattr(domain, &mr_attr, flags, &mr));
+    return mr;
+  }
+
+ private:
+  int dmabuf_fd_ = -1;
+  int device_ = -1;
 };

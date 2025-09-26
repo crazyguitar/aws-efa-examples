@@ -62,7 +62,7 @@ class Buffer {
       fi_close((fid_t)mr_);
       mr_ = nullptr;
     }
-    if (!raw_) {
+    if (raw_) {
       free(raw_);
       raw_ = nullptr;
     }
