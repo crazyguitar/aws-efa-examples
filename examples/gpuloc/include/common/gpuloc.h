@@ -11,6 +11,10 @@
 #include <unordered_set>
 #include <vector>
 
+/**
+ * @brief Error checking macro that throws runtime_error on failure
+ * @param exp Expression to evaluate
+ */
 #define CHECK(exp)                                                      \
   do {                                                                  \
     if ((exp)) {                                                        \
@@ -20,6 +24,10 @@
     }                                                                   \
   } while (0)
 
+/**
+ * @brief Assertion macro that throws runtime_error on false condition
+ * @param exp Expression to assert
+ */
 #define ASSERT(exp)                                    \
   do {                                                 \
     if (!(exp)) {                                      \
@@ -29,19 +37,30 @@
     }                                                  \
   } while (0)
 
+/** @brief NVIDIA PCI vendor ID */
 constexpr uint16_t NVIDIA_VENDOR_ID = 0x10de;
+/** @brief AMD PCI vendor ID */
 constexpr uint16_t AMD_VENDOR_ID = 0x1002;
 
 using pci_type = std::unordered_set<hwloc_obj_t>;
 
+/**
+ * @brief Represents a NUMA node with its associated cores and PCI bridges
+ */
 struct Numanode {
-  hwloc_obj_t numanode;
-  std::unordered_set<hwloc_obj_t> cores;
-  std::unordered_map<hwloc_obj_t, pci_type> bridge;
+  hwloc_obj_t numanode;                              ///< NUMA node object
+  std::unordered_set<hwloc_obj_t> cores;             ///< CPU cores in this NUMA node
+  std::unordered_map<hwloc_obj_t, pci_type> bridge;  ///< PCI bridges and their devices
 };
 
+/**
+ * @brief Hardware locality wrapper class for topology discovery
+ */
 class Hwloc {
  public:
+  /**
+   * @brief Constructor - initializes hwloc topology and discovers hardware
+   */
   Hwloc() {
     CHECK(hwloc_topology_init(&topology_));
     CHECK(hwloc_topology_set_all_types_filter(topology_, HWLOC_TYPE_FILTER_KEEP_ALL));
@@ -51,24 +70,70 @@ class Hwloc {
     Traverse(hwloc_get_root_obj(topology_), nullptr, numanodes_);
   }
 
+  /**
+   * @brief Destructor - cleans up hwloc topology
+   */
   ~Hwloc() { hwloc_topology_destroy(topology_); }
+
+  /**
+   * @brief Get discovered NUMA nodes
+   * @return Reference to vector of NUMA nodes
+   */
   const std::vector<Numanode> &GetNumaNodes() const noexcept { return numanodes_; }
 
+  /**
+   * @brief Check if object is a CPU package
+   * @param l hwloc object to check
+   * @return true if object is a package
+   */
   inline static bool IsPackage(hwloc_obj_t l) { return l->type == HWLOC_OBJ_PACKAGE; }
+
+  /**
+   * @brief Check if object is a NUMA node
+   * @param l hwloc object to check
+   * @return true if object is a NUMA node
+   */
   inline static bool IsNumaNode(hwloc_obj_t l) { return l->type == HWLOC_OBJ_NUMANODE; }
+
+  /**
+   * @brief Check if object is a CPU core
+   * @param l hwloc object to check
+   * @return true if object is a core
+   */
   inline static bool IsCore(hwloc_obj_t l) { return l->type == HWLOC_OBJ_CORE; }
+
+  /**
+   * @brief Check if object is a PCI device
+   * @param l hwloc object to check
+   * @return true if object is a PCI device
+   */
   inline static bool IsPCI(hwloc_obj_t l) { return l->type == HWLOC_OBJ_PCI_DEVICE; }
 
+  /**
+   * @brief Check if object is a host bridge
+   * @param l hwloc object to check
+   * @return true if object is a host bridge
+   */
   inline static bool IsHostBridge(hwloc_obj_t l) {
     if (l->type != HWLOC_OBJ_BRIDGE) return false;
     return l->attr->bridge.upstream_type != HWLOC_OBJ_BRIDGE_PCI;
   }
 
+  /**
+   * @brief Check if PCI device is an EFA adapter
+   * @param l hwloc object to check
+   * @return true if object is an EFA device
+   */
   inline static bool IsEFA(hwloc_obj_t l) {
     if (l->type != HWLOC_OBJ_PCI_DEVICE) return false;
     return IsOSDevType(HWLOC_OBJ_OSDEV_OPENFABRICS, l);
   }
 
+  /**
+   * @brief Check if PCI device is an NVIDIA GPU
+   * @param l hwloc object to check
+   * @return true if object is an NVIDIA GPU
+   */
   inline static bool IsGPU(hwloc_obj_t l) {
     if (l->type != HWLOC_OBJ_PCI_DEVICE) return false;
     auto class_id = l->attr->pcidev.class_id >> 8;
@@ -78,6 +143,12 @@ class Hwloc {
     return true;
   }
 
+  /**
+   * @brief Check if object has OS device of specified type
+   * @param type OS device type to check for
+   * @param l hwloc object to check
+   * @return true if object has the specified OS device type
+   */
   static bool IsOSDevType(hwloc_obj_osdev_type_e type, hwloc_obj_t l) {
     if (!l) return false;
     if (l->attr->osdev.type == type) return true;
@@ -96,6 +167,12 @@ class Hwloc {
     return false;
   }
 
+  /**
+   * @brief Recursively traverse hwloc topology to build NUMA node structure
+   * @param l Current hwloc object
+   * @param bridge Current PCI bridge
+   * @param numanodes Vector to populate with discovered NUMA nodes
+   */
   static void Traverse(hwloc_obj_t l, hwloc_obj_t bridge, std::vector<Numanode> &numanodes) {
     if (IsPackage(l)) {
       numanodes.emplace_back(Numanode{});
@@ -134,21 +211,40 @@ class Hwloc {
   std::vector<Numanode> numanodes_;
 };
 
+/**
+ * @brief GPU affinity information including associated NUMA node, cores, and EFA devices
+ */
 struct GPUAffinity {
-  hwloc_obj_t gpu;
-  hwloc_obj_t numanode;
-  std::vector<hwloc_obj_t> cores;
-  std::vector<hwloc_obj_t> efas;
+  hwloc_obj_t gpu;                 ///< GPU device object
+  hwloc_obj_t numanode;            ///< Associated NUMA node
+  std::vector<hwloc_obj_t> cores;  ///< CPU cores in the same NUMA node
+  std::vector<hwloc_obj_t> efas;   ///< EFA devices on the same PCI bridge
 };
 
+/**
+ * @brief GPU locality analyzer that maps GPUs to their optimal CPU and network resources
+ */
 class GPUloc {
  public:
   using affinity_type = std::unordered_map<hwloc_obj_t, GPUAffinity>;
 
+  /**
+   * @brief Constructor - discovers hardware topology and builds GPU affinity map
+   */
   GPUloc() : hwloc_{Hwloc()}, affinity_{GetAffinity(hwloc_)} {}
+
+  /**
+   * @brief Get GPU affinity mapping
+   * @return Reference to GPU affinity map
+   */
   const affinity_type &GetGPUAffinity() const noexcept { return affinity_; }
 
  private:
+  /**
+   * @brief Build GPU affinity mapping from hardware topology
+   * @param hwloc Hardware topology object
+   * @return GPU affinity mapping
+   */
   static affinity_type GetAffinity(Hwloc &hwloc) {
     std::unordered_map<hwloc_obj_t, GPUAffinity> affinity;
     for (auto &numa : hwloc.GetNumaNodes()) {
@@ -170,6 +266,12 @@ class GPUloc {
     return affinity;
   }
 
+  /**
+   * @brief Stream output operator for GPUloc
+   * @param os Output stream
+   * @param loc GPUloc object to output
+   * @return Reference to output stream
+   */
   friend std::ostream &operator<<(std::ostream &os, const GPUloc &loc) {
     for (auto &x : loc.affinity_) {
       auto &affinity = x.second;
