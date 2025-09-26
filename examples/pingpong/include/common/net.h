@@ -5,6 +5,7 @@
 #include <rdma/fi_endpoint.h>
 #include <spdlog/spdlog.h>
 
+#include <iostream>
 #include <memory>
 #include <unordered_map>
 #include <utility>
@@ -38,6 +39,13 @@ class Net {
     if (!cq_) return;
     auto &io = IO::Get();
     io.Register(cq_);
+  }
+
+  friend std::ostream &operator<<(std::ostream &os, const Net &net) {
+    os << "device addr:\n" << "  " << Addr2Str(net.addr_) << "\n";
+    os << "remote addr:\n";
+    for (auto &c : net.conns_) os << "  " << c.first << "\n";
+    return os;
   }
 
  private:

@@ -54,7 +54,7 @@ class IO : private NoCopy {
   void Select() {
     auto events = selector_.Select();
     for (auto &e : events) {
-      ready_.emplace_back(e.handle);
+      Call(*e.handle);
     }
   }
 
@@ -77,11 +77,16 @@ class IO : private NoCopy {
     }
   }
 
-  bool Stopped() { return schedule_.empty() and ready_.empty(); }
+  bool Stopped() { return schedule_.empty() and ready_.empty() and selector_.Stopped(); }
 
   template <typename T>
   void Register(T &&event) {
     selector_.Register(event);
+  }
+
+  template <typename T>
+  void UnRegister(T &&event) {
+    selector_.UnRegister(event);
   }
 
  private:

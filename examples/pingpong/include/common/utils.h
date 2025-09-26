@@ -15,7 +15,7 @@
 
 #define EXPECT(exp, expect)                                                      \
   do {                                                                           \
-    auto rc = exp;                                                               \
+    auto rc = (exp);                                                             \
     if (rc != expect) {                                                          \
       auto msg = fmt::format(#exp " fail. error({}): {}", rc, fi_strerror(-rc)); \
       SPDLOG_ERROR(msg);                                                         \

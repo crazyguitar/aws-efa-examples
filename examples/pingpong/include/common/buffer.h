@@ -66,7 +66,7 @@ class Buffer {
 
  private:
   inline static void *Align(void *ptr, size_t align) {
-    uintptr_t addr = (uintptr_t)(ptr);
+    uintptr_t addr = (uintptr_t)ptr;
     return (void *)((addr + align - 1) & ~(align - 1));
   }
 

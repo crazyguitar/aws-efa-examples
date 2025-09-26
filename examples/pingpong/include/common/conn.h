@@ -12,8 +12,8 @@
 
 class Conn : private NoCopy {
  public:
-  Conn(struct fid_ep *ep, struct fid_domain *domain)
-      : ep_{ep}, recv_buffer_{Buffer(domain, kBufferSize)}, send_buffer_{Buffer(domain, kBufferSize)} {}
+  Conn(struct fid_ep *ep, struct fid_domain *domain, fi_addr_t remote)
+      : ep_{ep}, remote_{remote}, recv_buffer_{Buffer(domain, kBufferSize)}, send_buffer_{Buffer(domain, kBufferSize)} {}
 
   struct recv_awaiter {
     Conn *conn{0};
@@ -28,10 +28,11 @@ class Conn : private NoCopy {
       context.handle = &coroutine.promise();
       struct iovec iov{0};
       struct fi_msg msg{0};
-      iov.iov_base = conn->recv_buffer_.GetData();
+      auto &buffer = conn->recv_buffer_;
+      iov.iov_base = buffer.GetData();
       iov.iov_len = size;
       msg.msg_iov = &iov;
-      msg.desc = &conn->recv_buffer_.GetMR()->mem_desc;
+      msg.desc = &buffer.GetMR()->mem_desc;
       msg.iov_count = 1;
       msg.addr = FI_ADDR_UNSPEC;
       msg.context = &context;
@@ -65,12 +66,12 @@ class Conn : private NoCopy {
       struct iovec iov{0};
       struct fi_msg msg{0};
       iov.iov_base = buffer.GetData();
-      iov.iov_len = buffer.GetSize();
+      iov.iov_len = size;
       msg.msg_iov = &iov;
       msg.desc = &buffer.GetMR()->mem_desc;
       msg.iov_count = 1;
-      msg.addr = FI_ADDR_UNSPEC;
-      msg.context = conn;
+      msg.addr = conn->remote_;
+      msg.context = &context;
       CHECK(fi_sendmsg(conn->ep_, &msg, 0));
       return true;
     }
@@ -97,8 +98,12 @@ class Conn : private NoCopy {
     co_return co_await send_awaiter(this, sz);
   }
 
+  Buffer &GetSendBuffer() noexcept { return send_buffer_; }
+  Buffer &GetRecvBuffer() noexcept { return recv_buffer_; }
+
  private:
   struct fid_ep *ep_ = nullptr;
+  fi_addr_t remote_;
   Buffer recv_buffer_;
   Buffer send_buffer_;
 };

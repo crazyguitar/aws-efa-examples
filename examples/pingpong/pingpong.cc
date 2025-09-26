@@ -14,22 +14,7 @@ void AllGatherAddr(const char *addr, int rank, std::string &endpoints) {
   MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, endpoints.data(), kMaxAddrSize, MPI_BYTE, MPI_COMM_WORLD);
 }
 
-Coro<> Start(Conn *conn) {
-  auto &mpi = MPI::Get();
-  auto rank = mpi.GetWorldRank();
-  auto world_size = mpi.GetWorldSize();
-  auto src = rank;
-  auto dst = (rank + 1) % world_size;
-
-  std::string data;
-  std::string msg = fmt::format("[{}] -> [{}]", rank, src, dst);
-  co_await conn->Send(msg.data(), msg.size());
-  auto [buf, len] = co_await conn->Recv();
-  for (size_t i = 0; i < len; ++i) data += (char)buf[i];
-  std::cout << fmt::format("[rank:{}] recv msg: {}", rank, data);
-}
-
-int main(int argc, char *argv[]) {
+Coro<> Start() {
   auto &mpi = MPI::Get();
   auto &efa = EFA::Get();
   auto net = Net();
@@ -41,6 +26,19 @@ int main(int argc, char *argv[]) {
   net.Open(efa.GetEFAInfo());
   AllGatherAddr(net.GetAddr(), rank, endpoints);
   std::memcpy(remote, endpoints.data() + ENDPOINT_IDX((rank + 1) % world_size), kMaxAddrSize);
+
   auto conn = net.Connect(remote);
-  Run(Start(conn));
+  auto src = rank;
+  auto dst = (rank + 1) % world_size;
+  std::string data;
+
+  // ping/pong
+  std::string msg = fmt::format("[rank:{}] [{}] -> [{}]", rank, src, dst);
+  std::cout << "send data:" << msg << std::endl;
+  co_await conn->Send(msg.data(), msg.size());
+  auto [buf, len] = co_await conn->Recv();
+  for (size_t i = 0; i < len; ++i) data += buf[i];
+  std::cout << "recv data: " << data << std::endl;
 }
+
+int main(int argc, char *argv[]) { Run(Start()); }

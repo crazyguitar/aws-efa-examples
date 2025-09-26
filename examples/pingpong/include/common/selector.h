@@ -6,6 +6,7 @@
 #include <rdma/fi_endpoint.h>
 #include <spdlog/spdlog.h>
 
+#include <iostream>
 #include <vector>
 
 #include "common/event.h"
@@ -33,6 +34,8 @@ class Selector {
   }
 
   void Register(struct fid_cq *cq) { cqs_.emplace(cq); }
+  void UnRegister(struct fid_cq *cq) { cqs_.erase(cq); }
+  inline bool Stopped() const noexcept { return cqs_.empty(); }
 
  private:
   inline static void HandleCompletion(struct fi_cq_data_entry *cq_entries, size_t n, std::vector<Event> &ret) {
@@ -41,6 +44,7 @@ class Selector {
       auto flags = entry.flags;
       Context *context = reinterpret_cast<Context *>(entry.op_context);
       if (!context) continue;
+      context->entry = entry;
       Handle *handle = context->handle;
       ret.emplace_back(Event{flags, handle});
     }

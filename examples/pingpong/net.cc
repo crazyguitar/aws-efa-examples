@@ -2,17 +2,12 @@
 
 Conn *Net::Connect(const char *remote) {
   fi_addr_t addr = FI_ADDR_UNSPEC;
-  int rc = 0;
   EXPECT(fi_av_insert(av_, remote, 1, &addr, 0, nullptr), 1);
-  if (rc != 1) {
-    auto msg = fmt::format("fi_av_insert failed. error({}): {}", rc, fi_strerror(-rc));
-    throw std::runtime_error(msg);
-  }
-
   auto key = Addr2Str(remote);
-  auto conn = std::make_unique<Conn>(ep_, domain_);
+  auto conn = std::make_unique<Conn>(ep_, domain_, addr);
+  auto raw_conn = conn.get();
   conns_.emplace(key, std::move(conn));
-  return conn.get();
+  return raw_conn;
 }
 
 void Net::Open(struct fi_info *info) {
@@ -37,6 +32,8 @@ void Net::Open(struct fi_info *info) {
 
 Net::~Net() {
   if (cq_) {
+    // unregister
+    IO::Get().UnRegister(cq_);
     fi_close((fid_t)cq_);
     cq_ = nullptr;
   }
