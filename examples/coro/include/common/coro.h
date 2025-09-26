@@ -29,6 +29,9 @@ struct Coro : private NoCopy {
   Coro(Coro&& c) noexcept : handle_(std::exchange(c.handle_, {})) {}
   ~Coro() { Destroy(); }
 
+  /**
+   * @brief Base awaiter for coroutine suspension and scheduling
+   */
   struct awaiter_base {
     coro h;
     constexpr bool await_ready() {
@@ -45,6 +48,10 @@ struct Coro : private NoCopy {
   };
 
   auto operator co_await() const& noexcept {
+    /**
+     * @brief Awaiter for lvalue coroutine references
+     * Returns result by reference
+     */
     struct awaiter : awaiter_base {
       decltype(auto) await_resume() const {
         if (!awaiter_base::h) throw std::runtime_error("invalid coro handler");
@@ -55,6 +62,10 @@ struct Coro : private NoCopy {
   }
 
   auto operator co_await() const&& noexcept {
+    /**
+     * @brief Awaiter for rvalue coroutine references
+     * Returns result by move
+     */
     struct awaiter : awaiter_base {
       decltype(auto) await_resume() const {
         if (!awaiter_base::h) throw std::runtime_error("invalid coro handler");
@@ -71,6 +82,10 @@ struct Coro : private NoCopy {
     promise_type(Oneway, Args&&...) : oneway_{true} {}
 
     auto initial_suspend() noexcept {
+      /**
+       * @brief Awaiter for coroutine initialization
+       * Controls whether coroutine starts immediately or suspends
+       */
       struct init_awaiter {
         constexpr bool await_ready() const noexcept { return oneway_; }
         constexpr void await_suspend(std::coroutine_handle<>) const noexcept {}
@@ -80,6 +95,10 @@ struct Coro : private NoCopy {
       return init_awaiter{oneway_};
     }
 
+    /**
+     * @brief Awaiter for coroutine finalization
+     * Handles continuation chain when coroutine completes
+     */
     struct final_awaiter {
       constexpr bool await_ready() const noexcept { return false; }
       constexpr void await_resume() const noexcept {}

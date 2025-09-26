@@ -24,6 +24,10 @@ class Conn : private NoCopy {
   Conn(struct fid_ep *ep, struct fid_domain *domain, fi_addr_t remote)
       : ep_{ep}, remote_{remote}, recv_buffer_{Buffer(domain, kBufferSize)}, send_buffer_{Buffer(domain, kBufferSize)} {}
 
+  /**
+   * @brief Awaiter for asynchronous receive operations
+   * Suspends coroutine until RDMA receive completes
+   */
   struct recv_awaiter {
     Conn *conn{0};
     Context context{0};
@@ -60,6 +64,10 @@ class Conn : private NoCopy {
     }
   };
 
+  /**
+   * @brief Awaiter for asynchronous send operations
+   * Suspends coroutine until RDMA send completes
+   */
   struct send_awaiter {
     Conn *conn{0};
     Context context{0};

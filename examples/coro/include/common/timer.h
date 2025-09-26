@@ -10,6 +10,7 @@ namespace detail {
 
 /**
  * @brief Awaiter for coroutine sleep operations
+ * Suspends coroutine for specified duration
  * @tparam Duration Duration type for sleep delay
  */
 template <typename Duration>
