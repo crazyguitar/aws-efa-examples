@@ -15,26 +15,13 @@
  * @brief Error checking macro that throws runtime_error on failure
  * @param exp Expression to evaluate
  */
-#define CHECK(exp)                                                      \
+#define GPULOC_CHECK(exp)                                                      \
   do {                                                                  \
     if ((exp)) {                                                        \
       auto msg = fmt::format(#exp " fail. error: {}", strerror(errno)); \
       SPDLOG_ERROR(msg);                                                \
       throw std::runtime_error(msg);                                    \
     }                                                                   \
-  } while (0)
-
-/**
- * @brief Assertion macro that throws runtime_error on false condition
- * @param exp Expression to assert
- */
-#define ASSERT(exp)                                    \
-  do {                                                 \
-    if (!(exp)) {                                      \
-      auto msg = fmt::format(#exp " assertion fail."); \
-      SPDLOG_ERROR(msg);                               \
-      throw std::runtime_error(msg);                   \
-    }                                                  \
   } while (0)
 
 /** @brief NVIDIA PCI vendor ID */
@@ -62,11 +49,11 @@ class Hwloc {
    * @brief Constructor - initializes hwloc topology and discovers hardware
    */
   Hwloc() {
-    CHECK(hwloc_topology_init(&topology_));
-    CHECK(hwloc_topology_set_all_types_filter(topology_, HWLOC_TYPE_FILTER_KEEP_ALL));
-    CHECK(hwloc_topology_set_io_types_filter(topology_, HWLOC_TYPE_FILTER_KEEP_IMPORTANT));
-    CHECK(hwloc_topology_set_flags(topology_, HWLOC_TOPOLOGY_FLAG_IMPORT_SUPPORT));
-    CHECK(hwloc_topology_load(topology_));
+    GPULOC_CHECK(hwloc_topology_init(&topology_));
+    GPULOC_CHECK(hwloc_topology_set_all_types_filter(topology_, HWLOC_TYPE_FILTER_KEEP_ALL));
+    GPULOC_CHECK(hwloc_topology_set_io_types_filter(topology_, HWLOC_TYPE_FILTER_KEEP_IMPORTANT));
+    GPULOC_CHECK(hwloc_topology_set_flags(topology_, HWLOC_TOPOLOGY_FLAG_IMPORT_SUPPORT));
+    GPULOC_CHECK(hwloc_topology_load(topology_));
     Traverse(hwloc_get_root_obj(topology_), nullptr, numanodes_);
   }
 
