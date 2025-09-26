@@ -1,9 +1,10 @@
+#include "common/efa.h"
+
 #include <cstring>
 #include <iostream>
 #include <string>
 
 #include "common/coro.h"
-#include "common/efa.h"
 #include "common/mpi.h"
 #include "common/net.h"
 #include "common/runner.h"

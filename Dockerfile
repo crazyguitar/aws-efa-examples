@@ -46,7 +46,10 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-unauthenticated \
     openssh-server \
     pkg-config \
     python3-distutils \
-    vim
+    vim \
+    hwloc \
+    libhwloc-dev
+
 RUN apt-get purge -y cuda-compat-*
 
 RUN mkdir -p /var/run/sshd
