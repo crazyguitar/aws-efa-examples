@@ -12,4 +12,4 @@ link_directories(
   /usr/local/cuda/lib64
 )
 
-add_subdirectory(examples)
+add_subdirectory(src)
