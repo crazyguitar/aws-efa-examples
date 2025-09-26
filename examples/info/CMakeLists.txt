@@ -1,5 +1,5 @@
 file(GLOB src *.cc)
-set(target lsefa)
+set(target info)
 
 set(ENV{PKG_CONFIG_PATH} "/opt/amazon/efa/lib/pkgconfig")
 find_package(PkgConfig REQUIRED)

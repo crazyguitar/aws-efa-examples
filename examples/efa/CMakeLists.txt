@@ -1,5 +1,5 @@
 file(GLOB src *.cc)
-set(target pingpong)
+set(target efa)
 
 set(ENV{PKG_CONFIG_PATH} "/opt/amazon/efa/lib/pkgconfig")
 find_package(PkgConfig REQUIRED)

@@ -1,3 +1,3 @@
 add_subdirectory(coro)
-add_subdirectory(lsefa)
-add_subdirectory(pingpong)
+add_subdirectory(info)
+add_subdirectory(efa)
