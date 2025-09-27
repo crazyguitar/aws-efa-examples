@@ -26,7 +26,7 @@ class Conn : private NoCopy {
         remote_{remote},
         recv_buffer_{HostBuffer(domain, kBufferSize)},
         send_buffer_{HostBuffer(domain, kBufferSize)},
-        write_buffer_{CUDABuffer(domain, kBufferSize)} {}
+        write_buffer_{CUDABuffer(domain, kMemoryRegionSize * 2)} {}
 
   /**
    * @brief Awaiter for asynchronous receive operations

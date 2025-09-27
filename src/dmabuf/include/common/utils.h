@@ -88,6 +88,8 @@ constexpr size_t kBufferSize = 8129;
 /** @brief Maximum completion queue entries */
 constexpr size_t kMaxCQEntries = 16;
 
+constexpr size_t kMemoryRegionSize = 16 << 20;
+
 /**
  * @brief Base class preventing copy operations
  */

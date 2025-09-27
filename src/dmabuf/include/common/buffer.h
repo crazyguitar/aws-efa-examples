@@ -179,6 +179,7 @@ class CUDABuffer : public Buffer {
     dmabuf.len = size;
     dmabuf.base_addr = data;
 
+    mr_attr.iov_count = 1;
     mr_attr.access = FI_SEND | FI_RECV | FI_REMOTE_WRITE | FI_REMOTE_READ | FI_WRITE | FI_READ;
     mr_attr.iface = FI_HMEM_CUDA;
     mr_attr.device.cuda = device;
