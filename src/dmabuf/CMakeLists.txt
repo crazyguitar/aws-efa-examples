@@ -5,6 +5,7 @@ set(ENV{PKG_CONFIG_PATH} "/opt/amazon/efa/lib/pkgconfig")
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 find_package(MPI REQUIRED)
+find_package(CUDA REQUIRED)
 pkg_check_modules(Efa IMPORTED_TARGET libefa)
 pkg_check_modules(Fabric IMPORTED_TARGET libfabric)
 pkg_check_modules(HWLOC REQUIRED hwloc)
@@ -24,4 +25,9 @@ target_link_libraries(${target} PRIVATE
   "${MPI_LIBRARIES}"
   "${NVML_LIBRARIES}"
   "${HWLOC_LIBRARIES}"
+  "${CUDA_LIBRARIES}"
+  cuda
 )
+
+set_target_properties(${target} PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
+

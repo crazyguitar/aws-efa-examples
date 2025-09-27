@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.17)
 include(CheckLanguage)
-project(efa LANGUAGES CXX C)
+project(efa LANGUAGES CXX C CUDA)
 set(CMAKE_CXX_STANDARD 20)
 include(cmake/packages.cmake)
 include_directories(

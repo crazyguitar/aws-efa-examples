@@ -22,7 +22,11 @@ class Conn : private NoCopy {
    * @param remote Remote endpoint address
    */
   Conn(struct fid_ep *ep, struct fid_domain *domain, fi_addr_t remote)
-      : ep_{ep}, remote_{remote}, recv_buffer_{HostBuffer(domain, kBufferSize)}, send_buffer_{HostBuffer(domain, kBufferSize)} {}
+      : ep_{ep},
+        remote_{remote},
+        recv_buffer_{HostBuffer(domain, kBufferSize)},
+        send_buffer_{HostBuffer(domain, kBufferSize)},
+        write_buffer_{CUDABuffer(domain, kBufferSize)} {}
 
   /**
    * @brief Awaiter for asynchronous receive operations
@@ -133,9 +137,12 @@ class Conn : private NoCopy {
   /** @brief Get receive buffer reference */
   inline HostBuffer &GetRecvBuffer() noexcept { return recv_buffer_; }
 
+  inline CUDABuffer &GetWriteBuffer() noexcept { return write_buffer_; }
+
  private:
   struct fid_ep *ep_ = nullptr;
   fi_addr_t remote_;
   HostBuffer recv_buffer_;
   HostBuffer send_buffer_;
+  CUDABuffer write_buffer_;
 };
