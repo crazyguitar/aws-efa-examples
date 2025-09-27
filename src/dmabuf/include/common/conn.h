@@ -26,7 +26,8 @@ class Conn : private NoCopy {
         remote_{remote},
         recv_buffer_{HostBuffer(domain, kBufferSize)},
         send_buffer_{HostBuffer(domain, kBufferSize)},
-        write_buffer_{CUDABuffer(domain, kMemoryRegionSize * 2)} {}
+        read_buffer_{CUDABuffer(domain, kMemoryRegionSize)},
+        write_buffer_{CUDABuffer(domain, kMemoryRegionSize)} {}
 
   /**
    * @brief Awaiter for asynchronous receive operations
@@ -138,11 +139,14 @@ class Conn : private NoCopy {
   inline HostBuffer &GetRecvBuffer() noexcept { return recv_buffer_; }
   /** @brief Get CUDA write buffer reference */
   inline CUDABuffer &GetWriteBuffer() noexcept { return write_buffer_; }
+  /** @brief Get CUDA read buffer reference */
+  inline CUDABuffer &GetReadBuffer() noexcept { return read_buffer_; }
 
  private:
   struct fid_ep *ep_ = nullptr;
   fi_addr_t remote_;
   HostBuffer recv_buffer_;
   HostBuffer send_buffer_;
+  CUDABuffer read_buffer_;
   CUDABuffer write_buffer_;
 };
