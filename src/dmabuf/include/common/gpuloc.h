@@ -31,6 +31,10 @@
     }                                                                   \
   } while (0)
 
+/**
+ * @brief Assertion macro that throws runtime_error on failure
+ * @param exp Boolean expression to verify
+ */
 #define GPULOC_ASSERT(exp)                             \
   do {                                                 \
     if (!(exp)) {                                      \
@@ -40,6 +44,11 @@
     }                                                  \
   } while (0)
 
+/**
+ * @brief Check NVML operation return code and throw on error
+ * @param exp Expression that returns NVML result code
+ * @throws std::runtime_error with error message on failure
+ */
 #define NVML_CHECK(exp)                                     \
   do {                                                      \
     nvmlReturn_t res = exp;                                 \
@@ -252,6 +261,9 @@ class GPUloc {
     affinity_ = GetAffinity(hwloc_, pci_info_map_);
   }
 
+  /**
+   * @brief Destructor - shuts down NVML
+   */
   ~GPUloc() { nvmlShutdown(); }
 
   /**
@@ -264,6 +276,7 @@ class GPUloc {
   /**
    * @brief Build GPU affinity mapping from hardware topology
    * @param hwloc Hardware topology object
+   * @param pci_info_map Map of PCI devices to fabric info
    * @return GPU affinity mapping
    */
   static affinity_type GetAffinity(Hwloc &hwloc, const pci_info_map_type &pci_info_map) {
@@ -307,6 +320,10 @@ class GPUloc {
     return affinity;
   }
 
+  /**
+   * @brief Build PCI device to fabric info mapping
+   * @return Map of PCI device tuples to fabric info structures
+   */
   static pci_info_map_type GetPCIInfoMap() {
     pci_info_map_type pci_info_map;
     auto &efa = EFA::Get();
@@ -322,6 +339,12 @@ class GPUloc {
     return pci_info_map;
   }
 
+  /**
+   * @brief Get fabric info for a PCI device
+   * @param pci PCI device object
+   * @param pci_info_map Map of PCI devices to fabric info
+   * @return Fabric info structure for the device
+   */
   static struct fi_info *GetFiInfo(hwloc_obj_t pci, const pci_info_map_type &pci_info_map) {
     auto attr = pci->attr;
     pci_type pcidev = std::make_tuple(attr->pcidev.domain, attr->pcidev.bus, attr->pcidev.dev, attr->pcidev.func);

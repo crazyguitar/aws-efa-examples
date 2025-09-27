@@ -76,6 +76,12 @@ class Buffer {
   struct fid_mr *GetMR() const { return mr_; }
 
  protected:
+  /**
+   * @brief Align pointer to specified boundary
+   * @param ptr Pointer to align
+   * @param align Alignment boundary
+   * @return Aligned pointer
+   */
   inline static void *Align(void *ptr, size_t align) {
     uintptr_t addr = (uintptr_t)ptr;
     return (void *)((addr + align - 1) & ~(align - 1));
@@ -109,6 +115,14 @@ class HostBuffer : public Buffer {
   }
 
  private:
+  /**
+   * @brief Register host buffer with RDMA domain
+   * @param domain RDMA domain for registration
+   * @param data Buffer data pointer
+   * @param size Buffer size in bytes
+   * @return Memory region handle
+   * @throws std::runtime_error on registration failure
+   */
   inline static struct fid_mr *Bind(struct fid_domain *domain, void *data, size_t size) {
     struct fid_mr *mr;
     struct fi_mr_attr mr_attr = {};
@@ -126,6 +140,13 @@ class CUDABuffer : public Buffer {
  public:
   CUDABuffer() = default;
 
+  /**
+   * @brief Create CUDA buffer with DMA-BUF registration
+   * @param domain RDMA domain for memory registration
+   * @param size Buffer size in bytes
+   * @param align Memory alignment (default: kAlign)
+   * @throws std::runtime_error on CUDA allocation or registration failure
+   */
   CUDABuffer(struct fid_domain *domain, size_t size, size_t align = kAlign) {
     struct cudaPointerAttributes attrs = {};
     CUDA_CHECK(cudaMalloc(&raw_, size));
@@ -139,9 +160,18 @@ class CUDABuffer : public Buffer {
     mr_ = Bind(domain, data_, size_, dmabuf_fd_, device_);
   }
 
+  /**
+   * @brief Move constructor for CUDABuffer
+   * @param other CUDABuffer to move from
+   */
   CUDABuffer(CUDABuffer &&other)
       : Buffer(std::move(other)), dmabuf_fd_{std::exchange(other.dmabuf_fd_, -1)}, device_{std::exchange(other.device_, -1)} {}
 
+  /**
+   * @brief Move assignment operator for CUDABuffer
+   * @param other CUDABuffer to move from
+   * @return Reference to this object
+   */
   CUDABuffer &operator=(CUDABuffer &&other) {
     raw_ = std::exchange(other.raw_, nullptr);
     data_ = std::exchange(other.data_, nullptr);
@@ -152,6 +182,9 @@ class CUDABuffer : public Buffer {
     return *this;
   }
 
+  /**
+   * @brief Destructor - cleans up CUDA memory and DMA-BUF resources
+   */
   ~CUDABuffer() {
     if (mr_) {
       fi_close((fid_t)mr_);
@@ -168,6 +201,16 @@ class CUDABuffer : public Buffer {
   }
 
  private:
+  /**
+   * @brief Register CUDA buffer with RDMA domain using DMA-BUF
+   * @param domain RDMA domain for registration
+   * @param data Buffer data pointer
+   * @param size Buffer size in bytes
+   * @param dmabuf_fd DMA-BUF file descriptor
+   * @param device CUDA device ID
+   * @return Memory region handle
+   * @throws std::runtime_error on registration failure
+   */
   inline static struct fid_mr *Bind(struct fid_domain *domain, void *data, size_t size, int dmabuf_fd, int device) {
     struct fid_mr *mr;
     struct fi_mr_attr mr_attr = {};

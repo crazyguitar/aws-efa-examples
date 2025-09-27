@@ -136,7 +136,7 @@ class Conn : private NoCopy {
   inline HostBuffer &GetSendBuffer() noexcept { return send_buffer_; }
   /** @brief Get receive buffer reference */
   inline HostBuffer &GetRecvBuffer() noexcept { return recv_buffer_; }
-
+  /** @brief Get CUDA write buffer reference */
   inline CUDABuffer &GetWriteBuffer() noexcept { return write_buffer_; }
 
  private:

@@ -38,6 +38,11 @@
     }                                                                            \
   } while (0)
 
+/**
+ * @brief Check CUDA runtime operation and throw on error
+ * @param exp Expression that returns cudaError_t
+ * @throws std::runtime_error with error message on failure
+ */
 #define CUDA_CHECK(exp)                                                                                                     \
   do {                                                                                                                      \
     cudaError_t err = (exp);                                                                                                \
@@ -48,6 +53,11 @@
     }                                                                                                                       \
   } while (0)
 
+/**
+ * @brief Check CUDA driver API operation and throw on error
+ * @param exp Expression that returns CUresult
+ * @throws std::runtime_error with error message on failure
+ */
 #define CU_CHECK(exp)                                                                                                                    \
   do {                                                                                                                                   \
     CUresult rc = (exp);                                                                                                                 \
