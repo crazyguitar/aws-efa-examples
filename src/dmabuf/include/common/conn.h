@@ -133,7 +133,7 @@ class Conn : private NoCopy {
       msg.msg_iov = &iov;
       msg.desc = &buffer.GetMR()->mem_desc;
       msg.iov_count = 1;
-      msg.addr = addr;
+      msg.addr = conn->remote_;
       msg.rma_iov = &rma_iov;
       msg.rma_iov_count = 1;
       msg.context = &context;
