@@ -7,6 +7,8 @@
 #include <spdlog/spdlog.h>
 
 #include <iostream>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "common/event.h"
@@ -53,6 +55,10 @@ class Selector {
    */
   inline void UnRegister(struct fid_cq *cq) { cqs_.erase(cq); }
 
+  inline void Register(uint64_t id, Context *context) { imm_data_contexts_.emplace(id, context); }
+
+  inline void UnRegister(uint64_t id) { imm_data_contexts_.erase(id); }
+
   /**
    * @brief Check if selector has no registered queues
    * @return true if no completion queues registered
@@ -60,15 +66,25 @@ class Selector {
   inline bool Stopped() const noexcept { return cqs_.empty(); }
 
  private:
-  inline static void HandleCompletion(struct fi_cq_data_entry *cq_entries, size_t n, std::vector<Event> &ret) {
+  inline void HandleCompletion(struct fi_cq_data_entry *cq_entries, size_t n, std::vector<Event> &ret) {
     for (size_t i = 0; i < n; ++i) {
       auto &entry = cq_entries[i];
       auto flags = entry.flags;
-      Context *context = reinterpret_cast<Context *>(entry.op_context);
-      if (!context) continue;
-      context->entry = entry;
-      Handle *handle = context->handle;
-      ret.emplace_back(Event{flags, handle});
+      if (flags & FI_REMOTE_WRITE) {
+        uint32_t imm_data = entry.data;
+        if (!imm_data) continue;
+        if (!imm_data_contexts_.contains(imm_data)) continue;
+        auto context = imm_data_contexts_[imm_data];
+        context->entry = entry;
+        Handle *handle = context->handle;
+        ret.emplace_back(Event{flags, handle});
+      } else {
+        Context *context = reinterpret_cast<Context *>(entry.op_context);
+        if (!context) continue;
+        context->entry = entry;
+        Handle *handle = context->handle;
+        ret.emplace_back(Event{flags, handle});
+      }
     }
   }
 
@@ -91,4 +107,5 @@ class Selector {
 
  private:
   std::unordered_set<struct fid_cq *> cqs_;
+  std::unordered_map<uint64_t, Context *> imm_data_contexts_;
 };

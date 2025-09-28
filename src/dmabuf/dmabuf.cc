@@ -79,13 +79,19 @@ static Conn *Connect(Net &net, int dst) {
   return net.Connect(remote);
 }
 
-Coro<Message *> Handshake(Conn *conn) {
-  auto send_msg = AllocMessage(conn);
-  co_await conn->Send((char *)send_msg, MSGSIZE(send_msg));
+static bool Verify(char *cuda_buffer, uint64_t seed, size_t size) {
+  auto expected = RandBuffer(seed, size);
+  auto actual = std::vector<uint8_t>(size, 0);
+  CUDA_CHECK(cudaMemcpy(actual.data(), (uint8_t *)cuda_buffer, size, cudaMemcpyDeviceToHost));
+  return expected == actual;
+}
+
+Coro<Message *> Handshake(Conn *conn, Message *req) {
+  co_await conn->Send((char *)req, MSGSIZE(req));
   auto [buf, size] = co_await conn->Recv();
-  auto recv_msg = (Message *)buf;
-  ASSERT(MSGSIZE(recv_msg) == size);
-  co_return recv_msg;
+  auto resp = (Message *)buf;
+  ASSERT(MSGSIZE(resp) == size);
+  co_return resp;
 }
 
 Coro<> Start() {
@@ -98,21 +104,28 @@ Coro<> Start() {
 
   net.Open(efa.GetEFAInfo());
   auto conn = Connect(net, dst);
-  auto msg = co_await Handshake(conn);
-  auto &region = (*msg)[0];
+  auto req = AllocMessage(conn);
+  auto local_seed = req->seed;
+  auto resp = co_await Handshake(conn, req);
+  auto &region = (*resp)[0];
+  uint64_t imm_data = 0x123;
 
   // clang-format off
-  std::cout << "[RANK:" << msg->rank << "] Recv->"
-            << " num=" << msg->num
-            << " seed=" << msg->seed
+  std::cout << "[RANK:" << rank << "] Recv->"
+            << " dst_rank=" << resp->rank
+            << " num=" << resp->num
+            << " seed=" << resp->seed
             << " addr=" << region.addr
             << " size=" << region.size
             << " key=" << region.key << std::endl;
   // clang-format on
 
   constexpr size_t size = 8 << 20;  // 8 MB
-  auto buf = RandBuffer(msg->seed, size);
-  co_await conn->Write((char *)buf.data(), buf.size(), region.addr, region.key);
+  auto buf = RandBuffer(resp->seed, size);
+  auto fut = Future(conn->Read(imm_data));
+  co_await conn->Write((char *)buf.data(), buf.size(), region.addr, region.key, imm_data);
+  auto cuda_buffer = co_await fut;
+  ASSERT(Verify(cuda_buffer, local_seed, size));
 }
 
 int main(int argc, char *argv[]) { Run(Start()); }

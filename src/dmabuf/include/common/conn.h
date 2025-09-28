@@ -153,6 +153,31 @@ class Conn : private NoCopy {
     }
   };
 
+  struct remote_write_awaiter {
+    Conn *conn{0};
+    Context context{0};
+    uint64_t imm_data{0};
+    remote_write_awaiter(Conn *c, uint64_t i) : conn{c}, imm_data{i} {}
+    constexpr bool await_ready() const noexcept { return false; }
+
+    template <typename Promise>
+    bool await_suspend(std::coroutine_handle<Promise> coroutine) {
+      coroutine.promise().SetState(Handle::kSuspend);
+      context.handle = &coroutine.promise();
+      IO::Get().Register(imm_data, &context);
+      return true;
+    }
+
+    char *await_resume() {
+      auto &entry = context.entry;
+      auto flags = entry.flags;
+      bool is_remote_write = (flags & FI_REMOTE_WRITE);
+      if (!is_remote_write) throw std::runtime_error(fmt::format("Invalid remote write flags."));
+      IO::Get().UnRegister(imm_data);
+      return (char *)conn->read_buffer_.GetData();
+    }
+  };
+
   /**
    * @brief Asynchronously receive data
    * @param sz Maximum bytes to receive (default: kBufferSize)
@@ -185,6 +210,11 @@ class Conn : private NoCopy {
     auto buffer = write_buffer_.GetData();
     CUDA_CHECK(cudaMemcpy(buffer, data, sz, cudaMemcpyHostToDevice));
     co_return co_await write_awaiter(this, sz, addr, key, imm_data);
+  }
+
+  Coro<char *> Read(uint64_t imm_data) {
+    if (imm_data == 0) throw std::invalid_argument("imm_data should be greater than 0");
+    co_return co_await remote_write_awaiter(this, imm_data);
   }
 
   /** @brief Get send buffer reference */

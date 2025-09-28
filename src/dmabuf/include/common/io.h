@@ -123,7 +123,12 @@ class IO : private NoCopy {
    */
   template <typename T>
   inline void Register(T &&event) {
-    selector_.Register(event);
+    selector_.Register(std::forward<T>(event));
+  }
+
+  template <typename T>
+  inline void Register(uint64_t id, T &&event) {
+    selector_.Register(id, std::forward<T>(event));
   }
 
   /**
@@ -132,7 +137,7 @@ class IO : private NoCopy {
    */
   template <typename T>
   inline void UnRegister(T &&event) {
-    selector_.UnRegister(event);
+    selector_.UnRegister(std::forward<T>(event));
   }
 
  private:
