@@ -58,6 +58,16 @@ static Message *AllocMessage(Conn *conn) {
   return data;
 }
 
+static void RandCUDABuffer(uint8_t *cuda_buf, uint64_t seed, size_t page_size, size_t num_pages) {
+  size_t size = page_size * num_pages;
+  ASSERT(size % sizeof(uint64_t) == 0);
+  std::vector<uint8_t> buf(size);
+  std::mt19937_64 gen(seed);
+  std::uniform_int_distribution<uint64_t> dist;
+  for (size_t i = 0; i < size; i += sizeof(uint64_t)) *(uint64_t *)(buf.data() + i) = dist(gen);
+  CUDA_CHECK(cudaMemcpy(cuda_buf, buf.data(), buf.size(), cudaMemcpyHostToDevice));
+}
+
 static Conn *Connect(Net &net, int dst) {
   auto &mpi = MPI::Get();
   auto rank = mpi.GetWorldRank();
@@ -100,6 +110,11 @@ Coro<> Start() {
             << " size=" << region.size
             << " key=" << region.key << std::endl;
   // clang-format on
+
+  constexpr size_t page_size = 1 << 20;
+  constexpr size_t num_pages = 8;
+  auto cuda_buf = (uint8_t *)conn->GetWriteBuffer().GetData();
+  RandCUDABuffer(cuda_buf, msg->seed, page_size, num_pages);
 }
 
 int main(int argc, char *argv[]) { Run(Start()); }
