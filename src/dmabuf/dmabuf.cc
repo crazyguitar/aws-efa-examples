@@ -111,9 +111,8 @@ Coro<> Start() {
   // clang-format on
 
   constexpr size_t size = 8 << 20;  // 8 MB
-  RandBuffer(msg->seed, size);
-  // TODO: implement CUDA rma
-  // co_await conn->Write((char *)buf.data(), buf.size(), region.addr, region.key);
+  auto buf = RandBuffer(msg->seed, size);
+  co_await conn->Write((char *)buf.data(), buf.size(), region.addr, region.key);
 }
 
 int main(int argc, char *argv[]) { Run(Start()); }

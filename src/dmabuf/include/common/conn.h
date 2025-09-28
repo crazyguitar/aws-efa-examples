@@ -146,6 +146,9 @@ class Conn : private NoCopy {
 
     size_t await_resume() {
       auto &entry = context.entry;
+      auto flags = entry.flags;
+      bool is_write = (flags & FI_WRITE);
+      if (!is_write) throw std::runtime_error(fmt::format("Invalid cq write flags."));
       return entry.len;
     }
   };
