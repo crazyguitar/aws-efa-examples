@@ -111,7 +111,7 @@ Coro<> Start() {
   uint64_t imm_data = 0x123;
 
   // clang-format off
-  std::cout << "[RANK:" << rank << "] Recv->"
+  std::cout << "[RANK:" << rank << "]"
             << " dst_rank=" << resp->rank
             << " num=" << resp->num
             << " seed=" << resp->seed
