@@ -107,6 +107,49 @@ class Conn : private NoCopy {
     }
   };
 
+  struct write_awaiter {
+    Conn *conn{0};
+    Context context{0};
+    size_t size{0};
+    uint64_t addr{0};
+    uint64_t key{0};
+    uint64_t imm_data{0};
+    write_awaiter(Conn *c, size_t sz, uint64_t a, uint64_t k, uint64_t i) : conn{c}, size{sz}, addr{a}, key{k}, imm_data{i} {}
+    constexpr bool await_ready() const noexcept { return false; }
+
+    template <typename Promise>
+    bool await_suspend(std::coroutine_handle<Promise> coroutine) {
+      coroutine.promise().SetState(Handle::kSuspend);
+      context.handle = &coroutine.promise();
+      auto &buffer = conn->write_buffer_;
+      struct iovec iov;
+      struct fi_rma_iov rma_iov;
+      struct fi_msg_rma msg;
+      iov.iov_base = buffer.GetData();
+      iov.iov_len = size;
+      rma_iov.addr = addr;
+      rma_iov.len = size;
+      rma_iov.key = key;
+      msg.msg_iov = &iov;
+      msg.desc = &buffer.GetMR()->mem_desc;
+      msg.iov_count = 1;
+      msg.addr = addr;
+      msg.rma_iov = &rma_iov;
+      msg.rma_iov_count = 1;
+      msg.context = &context;
+      msg.data = imm_data;
+      uint64_t flags = 0;
+      if (imm_data) flags |= FI_REMOTE_CQ_DATA;
+      CHECK(fi_writemsg(conn->ep_, &msg, flags));
+      return true;
+    }
+
+    size_t await_resume() {
+      auto &entry = context.entry;
+      return entry.len;
+    }
+  };
+
   /**
    * @brief Asynchronously receive data
    * @param sz Maximum bytes to receive (default: kBufferSize)
@@ -131,6 +174,14 @@ class Conn : private NoCopy {
     auto buffer = send_buffer_.GetData();
     std::memcpy(buffer, data, sz);
     co_return co_await send_awaiter(this, sz);
+  }
+
+  Coro<size_t> Write(const char *data, size_t sz, uint64_t addr, uint64_t key, uint64_t imm_data = 0) {
+    if (!data) std::invalid_argument("Write data is NULL");
+    if (sz <= 0) throw std::invalid_argument("Write buffer size should be greater than 0");
+    auto buffer = write_buffer_.GetData();
+    CUDA_CHECK(cudaMemcpy(buffer, data, sz, cudaMemcpyHostToDevice));
+    co_return co_await write_awaiter(this, sz, addr, key, imm_data);
   }
 
   /** @brief Get send buffer reference */
