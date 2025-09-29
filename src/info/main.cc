@@ -4,7 +4,7 @@
 #include <iostream>
 
 /**
- * ref: https://github.com/aws/libfabric/blob/master/util/info.c
+ *ref: https://github.com/aws/libfabric/blob/master/util/info.c
  */
 struct fi_info *GetInfo() {
   int rc = 0;
@@ -71,12 +71,6 @@ class EFA {
   struct fi_info *info_;
 };
 
-/**
- * @brief Main entry point
- * @param argc Argument count
- * @param argv Argument vector
- * @return Exit status code
- */
 int main(int argc, char *argv[]) {
   EFA efa;
   std::cout << efa;

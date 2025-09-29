@@ -127,10 +127,4 @@ Coro<> Start() {
   ASSERT(Verify(cuda_buffer, local_seed, size));
 }
 
-/**
- * @brief Main entry point
- * @param argc Argument count
- * @param argv Argument vector
- * @return Exit status code
- */
 int main(int argc, char *argv[]) { Run(Start()); }
