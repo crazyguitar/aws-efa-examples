@@ -41,4 +41,10 @@ Coro<> Start() {
   std::cout << "recv data: " << data << std::endl;
 }
 
+/**
+ * @brief Main entry point
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return Exit status code
+ */
 int main(int argc, char *argv[]) { Run(Start()); }

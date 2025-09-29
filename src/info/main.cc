@@ -71,6 +71,12 @@ class EFA {
   struct fi_info *info_;
 };
 
+/**
+ * @brief Main entry point
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return Exit status code
+ */
 int main(int argc, char *argv[]) {
   EFA efa;
   std::cout << efa;

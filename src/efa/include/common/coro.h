@@ -121,13 +121,24 @@ struct Coro : private NoCopy {
     auto final_suspend() noexcept { return final_awaiter{}; };
 
     Coro get_return_object() noexcept { return Coro{coro::from_promise(*this)}; }
+    /**
+     * @brief Execute the coroutine or handle task
+     */
     void run() final { coro::from_promise(*this).resume(); }
 
     const bool oneway_{false};
     Handle* next{nullptr};
   };  // promise_type
       //
+  /**
+   * @brief Check if coroutine handle is valid
+   * @return True if handle is valid, false otherwise
+   */
   bool valid() const { return handle_ != nullptr; }
+  /**
+   * @brief Check if coroutine execution is complete
+   * @return True if execution finished, false otherwise
+   */
   bool done() const { return handle_.done(); }
 
   decltype(auto) result() & { return handle_.promise().result(); }
@@ -135,6 +146,9 @@ struct Coro : private NoCopy {
   decltype(auto) result() && { return std::move(handle_.promise()).result(); }
 
  private:
+  /**
+   * @brief Clean up and destroy coroutine resources
+   */
   void Destroy() {
     if (auto handle = std::exchange(handle_, nullptr)) {
       handle.promise().cancel();

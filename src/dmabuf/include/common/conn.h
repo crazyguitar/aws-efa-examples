@@ -107,6 +107,9 @@ class Conn : private NoCopy {
     }
   };
 
+  /**
+   * @brief Coroutine awaiter for asynchronous operations
+   */
   struct write_awaiter {
     Conn *conn{0};
     Context context{0};
@@ -153,6 +156,9 @@ class Conn : private NoCopy {
     }
   };
 
+  /**
+   * @brief Coroutine awaiter for asynchronous operations
+   */
   struct remote_write_awaiter {
     Conn *conn{0};
     Context context{0};
