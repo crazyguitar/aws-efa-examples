@@ -15,6 +15,7 @@
 #include "common/timer.h"
 
 #define MSGSIZE(msg) (sizeof(Message) + (sizeof(CUDARegion) * msg->num))
+constexpr uint32_t kImmData = 0x123;
 
 struct CUDARegion {
   uint64_t addr;
@@ -41,7 +42,8 @@ static void AllGatherAddr(const char *addr, int rank, std::string &endpoints) {
 class Peer : private NoCopy {
  public:
   Peer() = delete;
-  Peer(int peer) : net_{Net()}, peer_{peer} {
+  Peer(int peer, size_t page_size, size_t num_pages)
+      : net_{Net()}, peer_{peer}, page_size_{page_size}, num_pages_{num_pages}, size_{page_size * num_pages} {
     auto &mpi = MPI::Get();
     auto rank = mpi.GetWorldRank();
     auto &loc = GPUloc::Get();
@@ -56,9 +58,13 @@ class Peer : private NoCopy {
     net_.Open(efa);
     conn_ = Connect(net_, peer);
     ASSERT(!!conn_);
+    auto total = page_size_ * num_pages_;
+    std::cout << fmt::format("page_size={} num_pages={} total={} mem_size={}", page_size_, num_pages_, total, kMemoryRegionSize) << std::endl;
+    ASSERT((page_size_ * num_pages_) <= conn_->GetReadBuffer().GetSize());
+    ASSERT((page_size_ * num_pages_) <= conn_->GetWriteBuffer().GetSize());
   }
 
- private:
+ protected:
   inline static Conn *Connect(Net &net, int peer) {
     auto &mpi = MPI::Get();
     int rank = mpi.GetWorldRank();
@@ -69,16 +75,40 @@ class Peer : private NoCopy {
     return net.Connect(remote);
   }
 
+  inline static std::vector<uint8_t> RandBuffer(uint64_t seed, size_t size) {
+    ASSERT(size % sizeof(uint64_t) == 0);
+    std::vector<uint8_t> buf(size);
+    std::mt19937_64 gen(seed);
+    std::uniform_int_distribution<uint64_t> dist;
+    for (size_t i = 0; i < size; i += sizeof(uint64_t)) *(uint64_t *)(buf.data() + i) = dist(gen);
+    return buf;
+  }
+
+  inline static bool Verify(char *cuda_buffer, uint64_t seed, size_t size) {
+    auto expected = RandBuffer(seed, size);
+    auto actual = std::vector<uint8_t>(size, 0);
+    CUDA_CHECK(cudaMemcpy(actual.data(), (uint8_t *)cuda_buffer, size, cudaMemcpyDeviceToHost));
+    return expected == actual;
+  }
+
  protected:
   Net net_;
   int peer_;
   Conn *conn_;
+  size_t page_size_;
+  size_t num_pages_;
+  size_t size_;
+  std::mt19937_64 rng_{0x123456789UL};
 };
 
 class Writer : public Peer {
  public:
   Writer() = delete;
-  Writer(int peer) : Peer(peer) {}
+  Writer(int peer, size_t page_size, size_t num_pages) : Peer(peer, page_size, num_pages) {
+    auto buffer = RandBuffer(peer_seed_, size_);
+    auto cuda_buffer = (char *)conn_->GetWriteBuffer().GetData();
+    CUDA_CHECK(cudaMemcpy(cuda_buffer, buffer.data(), size_, cudaMemcpyHostToDevice));
+  }
 
   Coro<> Handshake() {
     auto [buf, size] = co_await conn_->Recv();
@@ -86,10 +116,29 @@ class Writer : public Peer {
     ASSERT(MSGSIZE(resp) == size);
     ASSERT(resp->rank == peer_);
     peer_seed_ = resp->seed;
-
     peer_regions_.resize(resp->num);
     for (size_t i = 0; i < resp->num; ++i) {
-      peer_regions_[i] = (*resp)[0];
+      peer_regions_[i] = (*resp)[i];
+    }
+  }
+
+  Coro<> Write(size_t repeat) {
+    for (size_t i = 0; i < repeat; ++i) {
+      co_await WriteOne();
+    }
+  }
+
+  Coro<> WriteOne() {
+    auto cuda_buffer = conn_->GetWriteBuffer().GetData();
+    for (auto &region : peer_regions_) {
+      for (size_t i = 0; i < num_pages_; ++i) {
+        auto base = (char *)cuda_buffer + i * page_size_;
+        auto addr = region.addr + i * page_size_;
+        auto key = region.key;
+        auto is_final = (i == num_pages_ - 1);
+        auto imm_data = is_final ? kImmData : 0;
+        co_await conn_->Write(base, page_size_, addr, key, imm_data);
+      }
     }
   }
 
@@ -101,7 +150,7 @@ class Writer : public Peer {
 class Reader : public Peer {
  public:
   Reader() = delete;
-  Reader(int peer) : Peer(peer) {}
+  Reader(int peer, size_t page_size, size_t num_pages) : Peer(peer, page_size, num_pages) {}
 
   Coro<> Handshake() {
     auto req = Alloc(conn_);
@@ -109,9 +158,16 @@ class Reader : public Peer {
     ASSERT(size == MSGSIZE(req));
   }
 
+  Coro<> Read(size_t repeat) {
+    for (size_t i = 0; i < repeat; ++i) {
+      co_await conn_->Read(kImmData);
+    }
+  }
+
+  Coro<> ReadOne() { co_await conn_->Read(kImmData); }
+
  private:
-  inline static Message *Alloc(Conn *conn) {
-    std::mt19937_64 rng(0x123456789UL);
+  inline Message *Alloc(Conn *conn) {
     auto &mpi = MPI::Get();
     auto &buffer = conn->GetSendBuffer();
     auto data = (Message *)buffer.GetData();
@@ -124,7 +180,7 @@ class Reader : public Peer {
 
     header.rank = mpi.GetWorldRank();
     header.num = 1;
-    header.seed = rng();
+    header.seed = rng_();
     payload.addr = (uint64_t)cuda_data;
     payload.size = kMemoryRegionSize;
     payload.key = cuda_key;
@@ -132,20 +188,22 @@ class Reader : public Peer {
   }
 };
 
-Coro<> StartWriter(size_t page_size, size_t num_pages) {
+Coro<> StartWriter(size_t page_size, size_t num_pages, size_t repeat) {
   auto &mpi = MPI::Get();
   ASSERT(mpi.GetWorldRank() == 0);
   auto peer = 1;
-  auto writer = Writer(peer);
+  auto writer = Writer(peer, page_size, num_pages);
   co_await writer.Handshake();
+  co_await writer.Write(repeat);
 }
 
-Coro<> StartReader(size_t page_size, size_t num_pages) {
+Coro<> StartReader(size_t page_size, size_t num_pages, size_t repeat) {
   auto &mpi = MPI::Get();
   ASSERT(mpi.GetWorldRank() == 1);
   auto peer = 0;
-  auto reader = Reader(peer);
+  auto reader = Reader(peer, page_size, num_pages);
   co_await reader.Handshake();
+  co_await reader.Read(repeat);
 }
 
 int main(int argc, char *argv[]) {
@@ -154,11 +212,12 @@ int main(int argc, char *argv[]) {
   ASSERT(mpi.GetWorldSize() == 2);
   ASSERT(mpi.GetLocalSize() == 1);
 
-  constexpr size_t page_size = 128 * 8 * 2 * 16 * sizeof(uint16_t);  // 64k
+  constexpr size_t page_size = 128 * 8 * 2 * 16 * sizeof(uint16_t);
   constexpr size_t num_pages = 1000;
+  constexpr size_t repeat = 500;
   if (mpi.GetWorldRank() == 0) {
-    Run(StartWriter(page_size, num_pages));
+    Run(StartWriter(page_size, num_pages, repeat));
   } else {
-    Run(StartReader(page_size, num_pages));
+    Run(StartReader(page_size, num_pages, repeat));
   }
 }
