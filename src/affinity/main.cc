@@ -9,8 +9,8 @@
 #include "common/mpi.h"
 #include "common/net.h"
 #include "common/runner.h"
+#include "common/taskset.h"
 #include "common/timer.h"
-#include "common/gpuloc.h"
 
 #define MSGSIZE(msg) (sizeof(Message) + (sizeof(CUDARegion) * msg->num))
 
@@ -103,10 +103,14 @@ Coro<> Start() {
   auto world_size = mpi.GetWorldSize();
   auto dst = (rank + 1) % world_size;
 
-  cudaSetDevice(local_rank);
   auto &loc = GPUloc::Get();
   auto &affinity = loc.GetGPUAffinity()[local_rank];
+  auto cpu = affinity.cores[local_rank]->logical_index;
   auto efa = affinity.efas[local_rank].second;
+
+  std::cout << "[RANK:" << rank << "] GPU(" << local_rank << ") CPU(" << cpu << ")" << std::endl;
+  cudaSetDevice(local_rank);
+  Taskset::Set(cpu);
   net.Open(efa);
 
   auto conn = Connect(net, dst);
