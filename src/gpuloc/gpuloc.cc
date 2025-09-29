@@ -3,6 +3,6 @@
 #include <iostream>
 
 int main(int argc, char *argv[]) {
-  GPUloc loc;
+  auto &loc = GPUloc::Get();
   std::cout << loc;
 }

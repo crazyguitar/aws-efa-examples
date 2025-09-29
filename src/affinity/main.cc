@@ -5,10 +5,12 @@
 
 #include "common/coro.h"
 #include "common/efa.h"
+#include "common/gpuloc.h"
 #include "common/mpi.h"
 #include "common/net.h"
 #include "common/runner.h"
 #include "common/timer.h"
+#include "common/gpuloc.h"
 
 #define MSGSIZE(msg) (sizeof(Message) + (sizeof(CUDARegion) * msg->num))
 
@@ -95,13 +97,18 @@ Coro<Message *> Handshake(Conn *conn, Message *req) {
 
 Coro<> Start() {
   auto &mpi = MPI::Get();
-  auto &efa = EFA::Get();
   auto net = Net();
+  auto local_rank = mpi.GetLocalRank();
   auto rank = mpi.GetWorldRank();
   auto world_size = mpi.GetWorldSize();
   auto dst = (rank + 1) % world_size;
 
-  net.Open(efa.GetEFAInfo());
+  cudaSetDevice(local_rank);
+  auto &loc = GPUloc::Get();
+  auto &affinity = loc.GetGPUAffinity()[local_rank];
+  auto efa = affinity.efas[local_rank].second;
+  net.Open(efa);
+
   auto conn = Connect(net, dst);
   auto req = AllocMessage(conn);
   auto local_seed = req->seed;

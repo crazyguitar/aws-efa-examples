@@ -11,6 +11,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include "common/utils.h"
+
 /**
  * @brief Error checking macro that throws runtime_error on failure
  * @param exp Expression to evaluate
@@ -43,7 +45,7 @@ struct Numanode {
 /**
  * @brief Hardware locality wrapper class for topology discovery
  */
-class Hwloc {
+class Hwloc : private NoCopy {
  public:
   /**
    * @brief Constructor - initializes hwloc topology and discovers hardware
@@ -211,9 +213,14 @@ struct GPUAffinity {
 /**
  * @brief GPU locality analyzer that maps GPUs to their optimal CPU and network resources
  */
-class GPUloc {
+class GPUloc : private NoCopy {
  public:
   using affinity_type = std::unordered_map<hwloc_obj_t, GPUAffinity>;
+
+  inline static GPUloc &Get() {
+    static GPUloc loc;
+    return loc;
+  }
 
   /**
    * @brief Constructor - discovers hardware topology and builds GPU affinity map
