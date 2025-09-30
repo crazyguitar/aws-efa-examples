@@ -15,6 +15,16 @@ difficult to read and maintain. Managing global memory state across callbacks
 is error-prone and can lead to invalid memory access. This project uses C++20
 coroutines to provide a cleaner, more maintainable programming model.
 
+## Examples
+
+* **[info](src/info)** - Query EFA device information and capabilities using libfabric APIs
+* **[coro](src/coro)** - Basic coroutine event loop implementation for asynchronous programming
+* **[efa](src/efa)** - Host-to-host memory transfers using coroutines and EFA RDMA
+* **[dmabuf](src/dmabuf)** - GPU memory transfers using DMA buffers for zero-copy operations
+* **[gpuloc](src/gpuloc)** - Discover GPU topology and NUMA affinity using [hwloc](https://github.com/open-mpi/hwloc)
+* **[affinity](src/affinity)** - GPU memory transfers optimized with CPU-GPU affinity
+* **[batch](src/batch)** - High-throughput batch operations with affinity optimization
+
 ## Development
 
 ```bash
