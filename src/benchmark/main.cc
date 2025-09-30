@@ -51,6 +51,7 @@ class Peer : private NoCopy {
     auto &affinity = loc.GetGPUAffinity()[local_rank];
     auto cpu = affinity.cores[local_rank]->logical_index;
     auto efa = affinity.efas[local_rank].second;
+    total_bw_ = efa->nic->link_attr->speed;
 
     std::cout << "[RANK:" << rank << "] GPU(" << local_rank << ") CPU(" << cpu << ")" << std::endl;
     cudaSetDevice(local_rank);
@@ -98,6 +99,7 @@ class Peer : private NoCopy {
   size_t page_size_;
   size_t num_pages_;
   size_t size_;
+  size_t total_bw_;
   std::mt19937_64 rng_{0x123456789UL};
 };
 
@@ -123,12 +125,15 @@ class Writer : public Peer {
   }
 
   Coro<> Write(size_t repeat) {
+    auto total_ops = repeat * peer_regions_.size() * num_pages_;
+    auto progress = Progress(total_ops, total_bw_);
+    size_t ops = 0;
     for (size_t i = 0; i < repeat; ++i) {
-      co_await WriteOne();
+      co_await WriteOne(progress, ops);
     }
   }
 
-  Coro<> WriteOne() {
+  Coro<> WriteOne(Progress &progress, size_t &ops) {
     auto cuda_buffer = conn_->GetWriteBuffer().GetData();
     for (auto &region : peer_regions_) {
       for (size_t i = 0; i < num_pages_; ++i) {
@@ -138,6 +143,9 @@ class Writer : public Peer {
         auto is_final = (i == num_pages_ - 1);
         auto imm_data = is_final ? kImmData : 0;
         co_await conn_->Write(base, page_size_, addr, key, imm_data);
+        ++ops;
+        auto now = std::chrono::high_resolution_clock::now();
+        progress.Print(now, page_size_, ops);
       }
     }
   }
