@@ -1,4 +1,5 @@
 #include <cstring>
+#include <deque>
 #include <iostream>
 #include <random>
 #include <string>
@@ -135,26 +136,31 @@ class Writer : public Peer {
   }
 
   Coro<> WriteOne(Progress &progress, size_t &ops, size_t &sent) {
-    const size_t batch_size = 16;
+    const size_t batch_size = 8;
     auto cuda_buffer = conn_->GetWriteBuffer().GetData();
-    std::vector<Future<Coro<size_t>>> futs;
+    std::deque<Future<Coro<size_t>>> futs;
     for (auto &region : peer_regions_) {
       for (size_t i = 0; i < num_pages_; ++i) {
+        /**
+         * TODO: still have bug here. (core dump). However, using pipeline
+         * can saturate EFA bandwidth. Example output:
+         *
+         * [12.126s] ops=557500/2500000 bytes=146145280000/655360000000 bw=96.419Gbps(96.4)
+         */
+        while (futs.size() >= batch_size) {
+          auto &fut = futs.front();
+          co_await fut;
+          ++ops;
+          futs.pop_front();
+        }
+
         auto base = (char *)cuda_buffer + i * page_size_;
         auto addr = region.addr + i * page_size_;
         auto key = region.key;
         auto is_final = (i == num_pages_ - 1);
         auto imm_data = is_final ? kImmData : 0;
-
-        // batch write
-        ++sent;
         futs.emplace_back(Future(conn_->Write(base, page_size_, addr, key, imm_data)));
-        if (futs.size() < batch_size) continue;
-        for (auto &fut : futs) {
-          co_await fut;
-          ++ops;
-        }
-        futs.clear();
+        ++sent;
       }
     }
 
