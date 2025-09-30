@@ -145,6 +145,7 @@ class Writer : public Peer {
         co_await conn_->Write(base, page_size_, addr, key, imm_data);
         ++ops;
         auto now = std::chrono::high_resolution_clock::now();
+        if (ops % 1000 != 0) continue;
         progress.Print(now, page_size_, ops);
       }
     }
