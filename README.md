@@ -1,7 +1,6 @@
 # AWS EFA Examples
 
-This repository contains step-by-step examples demonstrating how to use libfabric
-for RDMA data transfers with AWS Elastic Fabric Adapter (EFA).
+Step-by-step examples demonstrating high-performance RDMA data transfers using [libfabric](https://github.com/ofiwg/libfabric) with AWS Elastic Fabric Adapter (EFA).
 
 ## Features
 
@@ -29,3 +28,7 @@ enroot start --mount /fsx:/fsx efa /bin/bash
 # build examples
 make build
 ```
+
+## Acknowledgments
+
+Thanks to the [Perplexity blog post](https://www.perplexity.ai/hub/blog/high-performance-gpu-memory-transfer-on-aws) and the [asyncio](https://github.com/netcan/asyncio) C++ repository for inspiration.
