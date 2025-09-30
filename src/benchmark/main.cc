@@ -128,13 +128,16 @@ class Writer : public Peer {
     auto total_ops = repeat * peer_regions_.size() * num_pages_;
     auto progress = Progress(total_ops, total_bw_);
     size_t ops = 0;
+    size_t sent = 0;
     for (size_t i = 0; i < repeat; ++i) {
-      co_await WriteOne(progress, ops);
+      co_await WriteOne(progress, ops, sent);
     }
   }
 
-  Coro<> WriteOne(Progress &progress, size_t &ops) {
+  Coro<> WriteOne(Progress &progress, size_t &ops, size_t &sent) {
+    const size_t batch_size = 16;
     auto cuda_buffer = conn_->GetWriteBuffer().GetData();
+    std::vector<Future<Coro<size_t>>> futs;
     for (auto &region : peer_regions_) {
       for (size_t i = 0; i < num_pages_; ++i) {
         auto base = (char *)cuda_buffer + i * page_size_;
@@ -142,13 +145,25 @@ class Writer : public Peer {
         auto key = region.key;
         auto is_final = (i == num_pages_ - 1);
         auto imm_data = is_final ? kImmData : 0;
-        co_await conn_->Write(base, page_size_, addr, key, imm_data);
-        ++ops;
-        auto now = std::chrono::high_resolution_clock::now();
-        if (ops % 1000 != 0) continue;
-        progress.Print(now, page_size_, ops);
+
+        // batch write
+        ++sent;
+        futs.emplace_back(Future(conn_->Write(base, page_size_, addr, key, imm_data)));
+        if (futs.size() < batch_size) continue;
+        for (auto &fut : futs) {
+          co_await fut;
+          ++ops;
+        }
+        futs.clear();
       }
     }
+
+    for (auto &fut : futs) {
+      co_await fut;
+      ++ops;
+    }
+    auto now = std::chrono::high_resolution_clock::now();
+    progress.Print(now, page_size_, ops);
   }
 
  private:
@@ -221,9 +236,9 @@ int main(int argc, char *argv[]) {
   ASSERT(mpi.GetWorldSize() == 2);
   ASSERT(mpi.GetLocalSize() == 1);
 
-  constexpr size_t page_size = 128 * 8 * 2 * 16 * sizeof(uint16_t);
-  constexpr size_t num_pages = 1000;
-  constexpr size_t repeat = 500;
+  constexpr size_t page_size = 256 << 10;  // 256k
+  constexpr size_t num_pages = 250;
+  constexpr size_t repeat = 10000;
   if (mpi.GetWorldRank() == 0) {
     Run(StartWriter(page_size, num_pages, repeat));
   } else {
