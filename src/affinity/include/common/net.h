@@ -76,6 +76,12 @@ class Net {
     io.Register(cq_);
   }
 
+  inline void UnRegister() {
+    if (!cq_) return;
+    auto &io = IO::Get();
+    io.UnRegister(cq_);
+  }
+
   friend std::ostream &operator<<(std::ostream &os, const Net &net) {
     os << "device addr:\n" << "  " << Addr2Str(net.addr_) << "\n";
     os << "remote addr:\n";

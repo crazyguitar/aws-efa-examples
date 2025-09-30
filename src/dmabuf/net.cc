@@ -31,9 +31,9 @@ void Net::Open(struct fi_info *info) {
 }
 
 Net::~Net() {
+  UnRegister();
   if (cq_) {
     // unregister
-    IO::Get().UnRegister(cq_);
     fi_close((fid_t)cq_);
     cq_ = nullptr;
   }
