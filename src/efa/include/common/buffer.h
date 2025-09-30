@@ -7,6 +7,7 @@
 #include <rdma/fi_errno.h>
 #include <stdlib.h>
 
+#include <unordered_map>
 #include <utility>
 
 #include "common/utils.h"
@@ -23,7 +24,7 @@
 /**
  * @brief RDMA memory buffer with automatic registration
  */
-class Buffer {
+class Buffer : private NoCopy {
  public:
   Buffer() = default;
 
@@ -34,34 +35,16 @@ class Buffer {
    * @param align Memory alignment (default: kAlign)
    * @throws std::runtime_error on allocation or registration failure
    */
-  Buffer(struct fid_domain *domain, size_t size, size_t align = kAlign) {
-    ASSERT(!!domain);
+  Buffer(size_t size, size_t align = kAlign) {
     raw_ = malloc(size);
     BUFFER_ASSERT(raw_);
     data_ = Align(raw_, align);
     size_ = (size_t)((uintptr_t)raw_ + size - (uintptr_t)data_);
-    mr_ = Bind(domain, data_, size_);
-  }
-
-  Buffer(Buffer &&other)
-      : raw_{std::exchange(other.raw_, nullptr)},
-        data_{std::exchange(other.data_, nullptr)},
-        size_{std::exchange(other.size_, 0)},
-        mr_{std::exchange(other.mr_, nullptr)} {}
-
-  Buffer &operator=(Buffer &&other) {
-    raw_ = std::exchange(other.raw_, nullptr);
-    data_ = std::exchange(other.data_, nullptr);
-    size_ = std::exchange(other.size_, 0);
-    mr_ = std::exchange(other.mr_, nullptr);
-    return *this;
   }
 
   ~Buffer() {
-    if (mr_) {
-      fi_close((fid_t)mr_);
-      mr_ = nullptr;
-    }
+    for (auto &x : mrs_) fi_close((fid_t)x.second);
+    mrs_.clear();
     if (raw_) {
       free(raw_);
       raw_ = nullptr;
@@ -77,17 +60,21 @@ class Buffer {
    */
   void *GetData() const { return data_; }
 
-  /**
-   * @brief Get memory region handle
-   * @return RDMA memory region descriptor
-   */
-  struct fid_mr *GetMR() const { return mr_; }
+  struct fid_mr *GetMR(struct fid_domain *domain) const {
+    ASSERT(!!domain);
+    return mrs_.at(domain);
+  }
 
   /**
    * @brief Get usable buffer size
    * @return Size in bytes
    */
   size_t GetSize() const { return size_; }
+
+  void Register(struct fid_domain *domain) {
+    if (mrs_.contains(domain)) return;
+    mrs_.emplace(domain, Bind(domain, data_, size_));
+  }
 
  private:
   inline static void *Align(void *ptr, size_t align) {
@@ -111,5 +98,5 @@ class Buffer {
   void *raw_ = nullptr;   // raw memory
   void *data_ = nullptr;  // aligned memory
   size_t size_ = 0;       // total memory size
-  struct fid_mr *mr_ = nullptr;
+  std::unordered_map<struct fid_domain *, struct fid_mr *> mrs_;
 };

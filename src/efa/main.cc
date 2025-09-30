@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 
+#include "common/buffer.h"
 #include "common/coro.h"
 #include "common/efa.h"
 #include "common/mpi.h"
@@ -32,11 +33,18 @@ Coro<> Start() {
   auto dst = (rank + 1) % world_size;
   std::string data;
 
+  Buffer rbuf{kBufferSize};
+  Buffer sbuf{kBufferSize};
+  rbuf.Register(conn->GetDomain());
+  sbuf.Register(conn->GetDomain());
+
   // ping/pong
   std::string msg = fmt::format("[rank:{}] [{}] -> [{}]", rank, src, dst);
+  std::memcpy(sbuf.GetData(), msg.data(), msg.size());
   std::cout << "send data:" << msg << std::endl;
-  co_await conn->Send(msg.data(), msg.size());
-  auto [buf, len] = co_await conn->Recv();
+  co_await conn->Send(sbuf, msg.size());
+  auto len = co_await conn->Recv(rbuf);
+  auto buf = (char *)rbuf.GetData();
   for (size_t i = 0; i < len; ++i) data += buf[i];
   std::cout << "recv data: " << data << std::endl;
 }
