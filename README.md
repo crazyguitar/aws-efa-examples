@@ -44,10 +44,10 @@ make build
 ### Coroutine
 
 The [coro](src/coro) example demonstrates event-driven programming using C++20 coroutines.
-To understand this implementation, start with the [event loop](src/coro/include/coro.h)
+To understand this implementation, you can start with the [event loop](src/coro/include/coro.h)
 to see how coroutines are scheduled.
 
-The event loop has three key components:
+You can observe that the event loop has three key components:
 - **Selector**: Queries I/O readiness (read/write events)
 - **Schedule queue**: Holds coroutines waiting for events
 - **Ready queue**: Contains coroutines ready for execution
