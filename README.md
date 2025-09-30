@@ -39,6 +39,10 @@ enroot start --mount /fsx:/fsx efa /bin/bash
 make build
 ```
 
+## Summary
+
+![alt Event Loop](imgs/io.png)
+
 ## Acknowledgments
 
 Thanks to the [Perplexity blog post](https://www.perplexity.ai/hub/blog/high-performance-gpu-memory-transfer-on-aws) and the [asyncio](https://github.com/netcan/asyncio) C++ repository for inspiration.
