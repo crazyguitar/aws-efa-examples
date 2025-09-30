@@ -6,6 +6,7 @@
 
 #include "common/coro.h"
 #include "common/efa.h"
+#include "common/gpuloc.h"
 #include "common/mpi.h"
 #include "common/net.h"
 #include "common/progress.h"
@@ -43,9 +44,18 @@ class Peer : private NoCopy {
   Peer() = delete;
   Peer(int peer, size_t page_size, size_t num_pages)
       : net_{Net()}, peer_{peer}, page_size_{page_size}, num_pages_{num_pages}, size_{page_size * num_pages} {
-    auto efa = EFA::Get().GetEFAInfo();
+    auto &mpi = MPI::Get();
+    auto rank = mpi.GetWorldRank();
+    auto &loc = GPUloc::Get();
+    auto local_rank = mpi.GetLocalRank();
+    auto &affinity = loc.GetGPUAffinity()[local_rank];
+    auto cpu = affinity.cores[local_rank]->logical_index;
+    auto efa = affinity.efas[local_rank].second;
     total_bw_ = efa->nic->link_attr->speed;
 
+    std::cout << "[RANK:" << rank << "] GPU(" << local_rank << ") CPU(" << cpu << ")" << std::endl;
+    cudaSetDevice(local_rank);
+    Taskset::Set(cpu);
     net_.Open(efa);
     conn_ = Connect(net_, peer);
     ASSERT(!!conn_);
@@ -125,7 +135,9 @@ class Writer : public Peer {
   }
 
   Coro<> WriteOne(Progress &progress, size_t &ops, size_t &sent) {
+    const size_t batch_size = 16;
     auto cuda_buffer = conn_->GetWriteBuffer().GetData();
+    std::vector<Future<Coro<size_t>>> futs;
     for (auto &region : peer_regions_) {
       for (size_t i = 0; i < num_pages_; ++i) {
         auto base = (char *)cuda_buffer + i * page_size_;
@@ -133,12 +145,23 @@ class Writer : public Peer {
         auto key = region.key;
         auto is_final = (i == num_pages_ - 1);
         auto imm_data = is_final ? kImmData : 0;
+
+        // batch write
         ++sent;
-        co_await conn_->Write(base, page_size_, addr, key, imm_data);
-        ++ops;
+        futs.emplace_back(Future(conn_->Write(base, page_size_, addr, key, imm_data)));
+        if (futs.size() < batch_size) continue;
+        for (auto &fut : futs) {
+          co_await fut;
+          ++ops;
+        }
+        futs.clear();
       }
     }
 
+    for (auto &fut : futs) {
+      co_await fut;
+      ++ops;
+    }
     auto now = std::chrono::high_resolution_clock::now();
     progress.Print(now, page_size_, ops);
   }

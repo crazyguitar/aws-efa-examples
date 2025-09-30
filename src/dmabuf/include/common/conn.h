@@ -190,7 +190,40 @@ class Conn : private NoCopy {
    * @return Coroutine yielding {buffer_ptr, actual_size}
    * @throws std::invalid_argument if sz <= 0
    */
-  Coro<std::pair<char *, size_t>> Recv(size_t sz = kBufferSize) {
+  Coro<std::pair<char *, size_t>> Recv(size_t sz = kBufferSize) { return Recv(oneway, sz); }
+
+  /**
+   * @brief Asynchronously send data
+   * @param data Data buffer to send
+   * @param sz Number of bytes to send
+   * @return Coroutine yielding bytes sent
+   * @throws std::invalid_argument if data is NULL or sz <= 0
+   */
+  Coro<size_t> Send(const char *data, size_t sz) { return Send(oneway, data, sz); }
+
+  Coro<size_t> Write(const char *data, size_t sz, uint64_t addr, uint64_t key, uint64_t imm_data = 0) {
+    return Write(oneway, data, sz, addr, key, imm_data);
+  }
+
+  Coro<char *> Read(uint64_t imm_data) { return Read(oneway, imm_data); }
+
+  /** @brief Get send buffer reference */
+  inline HostBuffer &GetSendBuffer() noexcept { return send_buffer_; }
+  /** @brief Get receive buffer reference */
+  inline HostBuffer &GetRecvBuffer() noexcept { return recv_buffer_; }
+  /** @brief Get CUDA write buffer reference */
+  inline CUDABuffer &GetWriteBuffer() noexcept { return write_buffer_; }
+  /** @brief Get CUDA read buffer reference */
+  inline CUDABuffer &GetReadBuffer() noexcept { return read_buffer_; }
+
+ private:
+  /**
+   * @brief Asynchronously receive data
+   * @param sz Maximum bytes to receive (default: kBufferSize)
+   * @return Coroutine yielding {buffer_ptr, actual_size}
+   * @throws std::invalid_argument if sz <= 0
+   */
+  Coro<std::pair<char *, size_t>> Recv(Oneway, size_t sz = kBufferSize) {
     if (sz <= 0) throw std::invalid_argument("Recv buffer size should be greater than 0");
     co_return co_await recv_awaiter(this, sz);
   }
@@ -202,7 +235,7 @@ class Conn : private NoCopy {
    * @return Coroutine yielding bytes sent
    * @throws std::invalid_argument if data is NULL or sz <= 0
    */
-  Coro<size_t> Send(const char *data, size_t sz) {
+  Coro<size_t> Send(Oneway, const char *data, size_t sz) {
     if (!data) throw std::invalid_argument("Send data is NULL");
     if (sz <= 0) throw std::invalid_argument("Send buffer size should be greater than 0");
     auto buffer = send_buffer_.GetData();
@@ -210,27 +243,16 @@ class Conn : private NoCopy {
     co_return co_await send_awaiter(this, sz);
   }
 
-  Coro<size_t> Write(const char *data, size_t sz, uint64_t addr, uint64_t key, uint64_t imm_data = 0) {
+  Coro<size_t> Write(Oneway, const char *data, size_t sz, uint64_t addr, uint64_t key, uint64_t imm_data = 0) {
     if (!data) std::invalid_argument("Write data is NULL");
     if (sz <= 0) throw std::invalid_argument("Write buffer size should be greater than 0");
-    auto buffer = write_buffer_.GetData();
-    CUDA_CHECK(cudaMemcpy(buffer, data, sz, cudaMemcpyHostToDevice));
     co_return co_await write_awaiter(this, sz, addr, key, imm_data);
   }
 
-  Coro<char *> Read(uint64_t imm_data) {
+  Coro<char *> Read(Oneway, uint64_t imm_data) {
     if (imm_data == 0) throw std::invalid_argument("imm_data should be greater than 0");
     co_return co_await remote_write_awaiter(this, imm_data);
   }
-
-  /** @brief Get send buffer reference */
-  inline HostBuffer &GetSendBuffer() noexcept { return send_buffer_; }
-  /** @brief Get receive buffer reference */
-  inline HostBuffer &GetRecvBuffer() noexcept { return recv_buffer_; }
-  /** @brief Get CUDA write buffer reference */
-  inline CUDABuffer &GetWriteBuffer() noexcept { return write_buffer_; }
-  /** @brief Get CUDA read buffer reference */
-  inline CUDABuffer &GetReadBuffer() noexcept { return read_buffer_; }
 
  private:
   struct fid_ep *ep_ = nullptr;

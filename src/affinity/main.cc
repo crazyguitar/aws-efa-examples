@@ -135,9 +135,7 @@ class Writer : public Peer {
   }
 
   Coro<> WriteOne(Progress &progress, size_t &ops, size_t &sent) {
-    const size_t batch_size = 16;
     auto cuda_buffer = conn_->GetWriteBuffer().GetData();
-    std::vector<Future<Coro<size_t>>> futs;
     for (auto &region : peer_regions_) {
       for (size_t i = 0; i < num_pages_; ++i) {
         auto base = (char *)cuda_buffer + i * page_size_;
@@ -145,23 +143,12 @@ class Writer : public Peer {
         auto key = region.key;
         auto is_final = (i == num_pages_ - 1);
         auto imm_data = is_final ? kImmData : 0;
-
-        // batch write
         ++sent;
-        futs.emplace_back(Future(conn_->Write(base, page_size_, addr, key, imm_data)));
-        if (futs.size() < batch_size) continue;
-        for (auto &fut : futs) {
-          co_await fut;
-          ++ops;
-        }
-        futs.clear();
+        co_await conn_->Write(base, page_size_, addr, key, imm_data);
+        ++ops;
       }
     }
 
-    for (auto &fut : futs) {
-      co_await fut;
-      ++ops;
-    }
     auto now = std::chrono::high_resolution_clock::now();
     progress.Print(now, page_size_, ops);
   }
