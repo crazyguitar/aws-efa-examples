@@ -94,11 +94,11 @@ constexpr size_t kAddrSize = 32;
 /** @brief Memory alignment boundary */
 constexpr size_t kAlign = 128;
 /** @brief Default buffer size */
-constexpr size_t kBufferSize = 8192;
+constexpr size_t kBufferSize = 8129;
 /** @brief Maximum completion queue entries */
 constexpr size_t kMaxCQEntries = 16;
 
-constexpr size_t kMemoryRegionSize = 16 << 20;
+constexpr size_t kMemoryRegionSize = 1UL << 30;
 
 /**
  * @brief Base class preventing copy operations

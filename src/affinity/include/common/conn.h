@@ -213,8 +213,6 @@ class Conn : private NoCopy {
   Coro<size_t> Write(const char *data, size_t sz, uint64_t addr, uint64_t key, uint64_t imm_data = 0) {
     if (!data) std::invalid_argument("Write data is NULL");
     if (sz <= 0) throw std::invalid_argument("Write buffer size should be greater than 0");
-    auto buffer = write_buffer_.GetData();
-    CUDA_CHECK(cudaMemcpy(buffer, data, sz, cudaMemcpyHostToDevice));
     co_return co_await write_awaiter(this, sz, addr, key, imm_data);
   }
 
