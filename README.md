@@ -126,6 +126,16 @@ an example of how to register memory through GPU dmabuf.
 
 ![alt GPU-MR](imgs/gpu-mr.png)
 
+#### SEND/RECV
+
+The [efa](src/efa) example demonstrates a SEND/RECV implementation using a
+common message passing model. For each SEND and RECV operation, the completion
+queue (CQ) notifies the application when the operation is ready, allowing users
+to process data from corresponding peers. The following figure shows how CQ
+notifies FI_SEND/FI_RECV events to users when SEND/RECV operations are complete.
+
+![alt SEND/RECV](imgs/send-recv.png)
+
 ## Acknowledgments
 
 Thanks to the [Perplexity blog post](https://www.perplexity.ai/hub/blog/high-performance-gpu-memory-transfer-on-aws) and the [asyncio](https://github.com/netcan/asyncio) C++ repository for inspiration.
