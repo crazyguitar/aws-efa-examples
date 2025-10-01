@@ -136,6 +136,20 @@ notifies FI_SEND/FI_RECV events to users when SEND/RECV operations are complete.
 
 ![alt SEND/RECV](imgs/send-recv.png)
 
+#### WRITE
+
+The [dmabuf](src/dmabuf) demonstrates a WRITE implementation using `fi_writemsg`.
+From the following figure, we can observe that node 1 can WRITE multiple times to
+node 2 but node 2 won't receive any notification from CQ until node 1 performs a
+write with `imm_data`. In this case, node 2 will receive `FI_REMOTE_WRITE` event
+from CQ to know that the write has completed. Unlike the common message passing
+model, WRITE operation acts more like producer and consumer architecture which
+acts like shared memory operations like put/get. You can refer [OpenSHMEM](https://docs.open-mpi.org/en/main/man-openshmem/man3/OpenSHMEM.3.html)
+or [NVSHMEM](https://docs.nvidia.com/nvshmem/api/index.html) to learn how these
+distributed SHMEM libraries integrate fabric with this behavior.
+
+![alt SEND/RECV](imgs/write.png)
+
 ## Acknowledgments
 
 Thanks to the [Perplexity blog post](https://www.perplexity.ai/hub/blog/high-performance-gpu-memory-transfer-on-aws) and the [asyncio](https://github.com/netcan/asyncio) C++ repository for inspiration.
