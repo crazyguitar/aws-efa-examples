@@ -58,6 +58,22 @@ Two main functions drive the loop:
 
 ![alt Event Loop](imgs/io.png)
 
+### Send/Recv
+
+
+```
+fi_info -p efa
+provider: efa
+    fabric: efa
+    domain: rdmap201s0-dgrm
+    version: 201.0
+    type: FI_EP_DGRAM
+    protocol: FI_PROTO_EFA
+```
+
+![alt Fabric](imgs/fabric.png)
+
+
 ## Acknowledgments
 
 Thanks to the [Perplexity blog post](https://www.perplexity.ai/hub/blog/high-performance-gpu-memory-transfer-on-aws) and the [asyncio](https://github.com/netcan/asyncio) C++ repository for inspiration.
