@@ -58,9 +58,8 @@ Two main functions drive the loop:
 
 ![alt Event Loop](imgs/io.png)
 
-### Fabric Initialization
 
-#### Device Discovery
+### Device Discovery
 
 The [info](src/info) example demonstrates device discovery using `fi_getinfo()` to
 query available EFA devices. This API is essential for selecting the appropriate
@@ -81,7 +80,7 @@ provider: efa
     protocol: FI_PROTO_EFA
 ```
 
-#### Fabric Object Hierarchy
+### Fabric Object Hierarchy
 
 The [efa](src/efa) example shows ping/pong communication between two nodes.
 Before communication begins, several fabric objects must be initialized in a
@@ -101,7 +100,7 @@ events on SEND/RECV/WRITE operations.
 
 ![alt Fabric](imgs/fabric.png)
 
-#### Memory Region Registration
+### Memory Region Registration
 
 Memory Regions enable zero-copy RDMA operations by allowing EFA hardware direct
 access to application memory. To register a memory region, you must provide:
@@ -115,7 +114,7 @@ without operating system involvement, enabling high-performance data transfers.
 
 ![alt MR](imgs/mr.png)
 
-#### GPU Memory Region Registration
+### GPU Memory Region Registration
 
 In [dmabuf](src/dmabuf), we demonstrate an example showing how to access GPU memory
 from EFA directly. Unlike CPU host memory, where we can bind `malloc` memory to
@@ -126,7 +125,7 @@ an example of how to register memory through GPU dmabuf.
 
 ![alt GPU-MR](imgs/gpu-mr.png)
 
-#### SEND/RECV
+### SEND/RECV
 
 The [efa](src/efa) example demonstrates a SEND/RECV implementation using a
 common message passing model. For each SEND and RECV operation, the completion
@@ -136,7 +135,7 @@ notifies FI_SEND/FI_RECV events to users when SEND/RECV operations are complete.
 
 ![alt SEND/RECV](imgs/send-recv.png)
 
-#### WRITE
+### WRITE
 
 The [dmabuf](src/dmabuf) demonstrates a WRITE implementation using `fi_writemsg`.
 From the following figure, we can observe that node 1 can WRITE multiple times to
