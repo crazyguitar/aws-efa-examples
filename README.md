@@ -125,7 +125,7 @@ node 2 but node 2 won't receive any notification from CQ until node 1 performs a
 write with `imm_data`. In this case, node 2 will receive `FI_REMOTE_WRITE` event
 from CQ to know that the write has completed. Unlike the common message passing
 model, WRITE operation acts more like producer and consumer architecture which
-acts like shared memory operations like put/get. You can refer [OpenSHMEM](https://docs.open-mpi.org/en/main/man-openshmem/man3/OpenSHMEM.3.html)
+acts like shared memory put/get operations. You can refer [OpenSHMEM](https://docs.open-mpi.org/en/main/man-openshmem/man3/OpenSHMEM.3.html)
 or [NVSHMEM](https://docs.nvidia.com/nvshmem/api/index.html) to learn how these
 distributed SHMEM libraries integrate fabric with this behavior.
 
