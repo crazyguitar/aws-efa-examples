@@ -101,6 +101,20 @@ events on SEND/RECV/WRITE operations.
 
 ![alt Fabric](imgs/fabric.png)
 
+#### Memory Region Registration
+
+Memory Regions enable zero-copy RDMA operations by allowing EFA hardware direct
+access to application memory. To register a memory region, you must provide:
+
+- **Memory address**: Pointer to the buffer
+- **Size**: Buffer size in bytes
+- **EFA domain**: Associates the region with the network interface
+
+Once registered, the EFA hardware can directly read from or write to this memory
+without operating system involvement, enabling high-performance data transfers.
+
+![alt MR](imgs/mr.png)
+
 ## Acknowledgments
 
 Thanks to the [Perplexity blog post](https://www.perplexity.ai/hub/blog/high-performance-gpu-memory-transfer-on-aws) and the [asyncio](https://github.com/netcan/asyncio) C++ repository for inspiration.
