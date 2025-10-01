@@ -58,11 +58,21 @@ Two main functions drive the loop:
 
 ![alt Event Loop](imgs/io.png)
 
-### Send/Recv
+### Fabric Initialization
 
+#### Device Discovery
 
-```
+The [info](src/info) example demonstrates device discovery using `fi_getinfo()` to
+query available EFA devices. This API is essential for selecting the appropriate
+EFA device for communication.
+
+Query EFA devices using the command line tool:
+```bash
 fi_info -p efa
+```
+
+Example output:
+```
 provider: efa
     fabric: efa
     domain: rdmap201s0-dgrm
@@ -71,8 +81,25 @@ provider: efa
     protocol: FI_PROTO_EFA
 ```
 
-![alt Fabric](imgs/fabric.png)
+#### Fabric Object Hierarchy
 
+The [efa](src/efa) example shows ping/pong communication between two nodes.
+Before communication begins, several fabric objects must be initialized in a
+specific hierarchy:
+
+**Components:**
+- **Fabric**: Collection of hardware devices and resources
+- **Domain**: Represents a single network interface (similar to NIC)
+- **Endpoint**: Communication channel for sending/receiving data
+- **Address Vector (AV)**: Stores remote peer addresses for communication
+- **Completion Queue (CQ)**: Event notification mechanism for completed operations
+- **Memory Region (MR)**: Registered memory accessible by EFA hardware for RDMA
+
+Note that the Completion Queue functions like `select()` or `epoll()` in
+traditional network programming, allowing applications to poll for completion
+events on SEND/RECV/WRITE operations.
+
+![alt Fabric](imgs/fabric.png)
 
 ## Acknowledgments
 
