@@ -115,6 +115,17 @@ without operating system involvement, enabling high-performance data transfers.
 
 ![alt MR](imgs/mr.png)
 
+#### GPU Memory Region Registration
+
+In [dmabuf](src/dmabuf), we demonstrate an example showing how to access GPU memory
+from EFA directly. Unlike CPU host memory, where we can bind `malloc` memory to
+a memory region directly through `fi_mr_regattr`, we need a
+GPU [DMA-BUF](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/24.6.2/gpu-operator-rdma.html)
+to register GPU memory to a memory region and domain. The following figure shows
+an example of how to register memory through GPU dmabuf.
+
+![alt GPU-MR](imgs/gpu-mr.png)
+
 ## Acknowledgments
 
 Thanks to the [Perplexity blog post](https://www.perplexity.ai/hub/blog/high-performance-gpu-memory-transfer-on-aws) and the [asyncio](https://github.com/netcan/asyncio) C++ repository for inspiration.
