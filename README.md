@@ -122,8 +122,8 @@ notifies FI_SEND/FI_RECV events to users when SEND/RECV operations are complete.
 The [dmabuf](src/dmabuf) demonstrates a WRITE implementation using `fi_writemsg`.
 From the following figure, we can observe that node 1 can WRITE multiple times to
 node 2 but node 2 won't receive any notification from CQ until node 1 performs a
-write with `imm_data`. In this case, node 2 will receive `FI_REMOTE_WRITE` event
-from CQ to know that the write has completed. Unlike the common message passing
+write with `imm_data`. In this case, node 2 waits for the CQ to return `FI_REMOTE_WRITE`
+event to know that the write has completed. Unlike the common message passing
 model, WRITE operation acts more like producer and consumer architecture which
 acts like shared memory put/get operations. You can refer [OpenSHMEM](https://docs.open-mpi.org/en/main/man-openshmem/man3/OpenSHMEM.3.html)
 or [NVSHMEM](https://docs.nvidia.com/nvshmem/api/index.html) to learn how these
@@ -149,6 +149,51 @@ Two main functions drive the loop:
 - **RunOne()**: Checks if scheduled coroutines are ready, moving them to the ready queue for execution
 
 ![alt Event Loop](imgs/io.png)
+
+### Batch
+
+The [affinity](src/affinity) and [batch](src/batch) examples demonstrate the
+performance difference between sequential and overlapping WRITE operations for
+saturating EFA bandwidth.
+
+**Sequential Operations ([affinity](src/affinity)):**
+```cpp
+for (size_t i = 0; i < num_pages_; ++i) {
+  auto base = (char *)cuda_buffer + i * page_size_;
+  auto addr = region.addr + i * page_size_;
+  co_await conn_->Write(base, page_size_, addr, key, imm_data);
+}
+```
+
+Sequential writes achieve only ~34 Gbps:
+```
+[22.740s] ops=371000/2500000 bytes=97189888000/655360000000 bw=34.224Gbps(34.2)
+```
+
+**Batched Operations ([batch](src/batch)):**
+```cpp
+const size_t batch_size = 8;
+for (size_t i = 0; i < num_pages_; ++i) {
+  while (futs.size() >= batch_size) {
+    co_await futs.front();
+    futs.pop_front();
+  }
+  auto base = (char *)cuda_buffer + i * page_size_;
+  auto addr = region.addr + i * page_size_;
+  futs.emplace_back(conn_->Write(base, page_size_, addr, key, imm_data));
+}
+```
+
+Batched writes achieve ~96 Gbps by overlapping operations:
+```
+[12.126s] ops=557500/2500000 bytes=146145280000/655360000000 bw=96.419Gbps(96.4)
+```
+
+Network bandwidth scales with data size and operation parallelism. The batch
+approach allows multiple WRITE operations to execute concurrently, approaching
+EFA's theoretical maximum of 100 Gbps.
+
+![alt Batch](imgs/batch.png)
 
 ## Acknowledgments
 
