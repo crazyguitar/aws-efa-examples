@@ -131,25 +131,6 @@ distributed SHMEM libraries integrate fabric with this behavior.
 
 ![alt SEND/RECV](imgs/write.png)
 
-## Appendix
-
-### Coroutine
-
-The [coro](src/coro) example demonstrates event-driven programming using C++20 coroutines.
-To understand this implementation, you can start with the [event loop](src/coro/include/coro.h)
-to see how coroutines are scheduled.
-
-You can observe that the event loop has three key components:
-- **Selector**: Queries I/O readiness (read/write events)
-- **Schedule queue**: Holds coroutines waiting for events
-- **Ready queue**: Contains coroutines ready for execution
-
-Two main functions drive the loop:
-- **Select()**: Uses the selector to check if events are ready. For EFA, this queries the [completion queue](https://github.com/ofiwg/libfabric/blob/7d60749967a425fff75dd36df03757ab871b0b4e/man/fi_cq.3.md) for fabric operation completion
-- **RunOne()**: Checks if scheduled coroutines are ready, moving them to the ready queue for execution
-
-![alt Event Loop](imgs/io.png)
-
 ### Batch
 
 The [affinity](src/affinity) and [batch](src/batch) examples demonstrate the
@@ -194,6 +175,25 @@ approach allows multiple WRITE operations to execute concurrently, approaching
 EFA's theoretical maximum of 100 Gbps.
 
 ![alt Batch](imgs/batch.png)
+
+## Appendix
+
+### Coroutine
+
+The [coro](src/coro) example demonstrates event-driven programming using C++20 coroutines.
+To understand this implementation, you can start with the [event loop](src/coro/include/coro.h)
+to see how coroutines are scheduled.
+
+You can observe that the event loop has three key components:
+- **Selector**: Queries I/O readiness (read/write events)
+- **Schedule queue**: Holds coroutines waiting for events
+- **Ready queue**: Contains coroutines ready for execution
+
+Two main functions drive the loop:
+- **Select()**: Uses the selector to check if events are ready. For EFA, this queries the [completion queue](https://github.com/ofiwg/libfabric/blob/7d60749967a425fff75dd36df03757ab871b0b4e/man/fi_cq.3.md) for fabric operation completion
+- **RunOne()**: Checks if scheduled coroutines are ready, moving them to the ready queue for execution
+
+![alt Event Loop](imgs/io.png)
 
 ## Acknowledgments
 
